@@ -26,6 +26,7 @@ References
    York. 2000.
 
 """
+import re
 import warnings
 import math
 from math import gcd
@@ -4797,7 +4798,7 @@ def spearmanr(a, b=None, axis=0, nan_policy='propagate',
     Returns
     -------
     res : SpearmanrResult
-    An object containing the following attributes:
+        An object containing the following attributes:
     
         correlation : float or ndarray (2-D square)
             Spearman correlation matrix or correlation coefficient (if only 2
@@ -4963,7 +4964,7 @@ def spearmanr(a, b=None, axis=0, nan_policy='propagate',
     return res
 
 
-PointbiserialrResult = namedtuple('PointbiserialrResult',
+PointbiserialrResult = _make_tuple_bunch('PointbiserialrResult',
                                   ('correlation', 'pvalue'))
 
 
@@ -4988,10 +4989,13 @@ def pointbiserialr(x, y):
 
     Returns
     -------
-    correlation : float
-        R value.
-    pvalue : float
-        Two-sided p-value.
+    res : PointbiserialrResult
+    An object containing the following attributes:
+
+        correlation : float
+            R value.
+        pvalue : float
+            Two-sided p-value.
 
     Notes
     -----
@@ -5051,7 +5055,9 @@ def pointbiserialr(x, y):
 
     """
     rpb, prob = pearsonr(x, y)
-    return PointbiserialrResult(rpb, prob)
+    res = PointbiserialrResult(rpb, prob)
+    res.statistic = res.correlation
+    return res
 
 
 KendalltauResult = namedtuple('KendalltauResult', ('correlation', 'pvalue'))
