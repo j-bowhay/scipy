@@ -5285,7 +5285,8 @@ def kendalltau(x, y, initial_lexsort=None, nan_policy='propagate',
     return res
 
 
-WeightedTauResult = namedtuple('WeightedTauResult', ('correlation', 'pvalue'))
+WeightedTauResult = _make_tuple_bunch('WeightedTauResult',
+                                      ('correlation', 'pvalue'))
 
 
 def weightedtau(x, y, rank=True, weigher=None, additive=True):
@@ -5343,11 +5344,14 @@ def weightedtau(x, y, rank=True, weigher=None, additive=True):
 
     Returns
     -------
-    correlation : float
-       The weighted :math:`\tau` correlation index.
-    pvalue : float
-       Presently ``np.nan``, as the null statistics is unknown (even in the
-       additive hyperbolic case).
+    res : WeightedTauResult
+        An object containing the following attributes:
+
+        correlation : float
+            The weighted :math:`\tau` correlation index.
+        pvalue : float
+            Presently ``np.nan``, as the null statistics is unknown (even in
+            the additive hyperbolic case).
 
     See Also
     --------
@@ -5427,7 +5431,7 @@ def weightedtau(x, y, rank=True, weigher=None, additive=True):
                          "found x-size %s and y-size %s" % (x.size, y.size))
     if not x.size:
         # Return NaN if arrays are empty
-        return WeightedTauResult(np.nan, np.nan)
+        res = WeightedTauResult(np.nan, np.nan)
 
     # If there are NaNs we apply _toint64()
     if np.isnan(np.sum(x)):
@@ -5447,7 +5451,7 @@ def weightedtau(x, y, rank=True, weigher=None, additive=True):
             y = _toint64(y)
 
     if rank is True:
-        return WeightedTauResult((
+        res = WeightedTauResult((
             _weightedrankedtau(x, y, None, weigher, additive) +
             _weightedrankedtau(y, x, None, weigher, additive)
         ) / 2, np.nan)
@@ -5462,8 +5466,10 @@ def weightedtau(x, y, rank=True, weigher=None, additive=True):
                 "found x-size %s and rank-size %s" % (x.size, rank.size)
             )
 
-    return WeightedTauResult(_weightedrankedtau(x, y, rank, weigher, additive),
+    res = WeightedTauResult(_weightedrankedtau(x, y, rank, weigher, additive),
                              np.nan)
+    res.statistic = res.correlation
+    return res
 
 
 # FROM MGCPY: https://github.com/neurodata/mgcpy
