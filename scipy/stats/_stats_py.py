@@ -5060,7 +5060,8 @@ def pointbiserialr(x, y):
     return res
 
 
-KendalltauResult = namedtuple('KendalltauResult', ('correlation', 'pvalue'))
+KendalltauResult = _make_tuple_bunch('KendalltauResult',
+                                     ('correlation', 'pvalue'))
 
 
 def kendalltau(x, y, initial_lexsort=None, nan_policy='propagate',
@@ -5117,11 +5118,14 @@ def kendalltau(x, y, initial_lexsort=None, nan_policy='propagate',
 
     Returns
     -------
-    correlation : float
-       The tau statistic.
-    pvalue : float
-       The p-value for a hypothesis test whose null hypothesis is
-       an absence of association, tau = 0.
+    res : KendalltauResult
+        An object containing the following attributes:
+
+        correlation : float
+            The tau statistic.
+        pvalue : float
+            The p-value for a hypothesis test whose null hypothesis is
+            an absence of association, tau = 0.
 
     See Also
     --------
@@ -5182,7 +5186,7 @@ def kendalltau(x, y, initial_lexsort=None, nan_policy='propagate',
                          f"size, found x-size {x.size} and y-size {y.size}")
     elif not x.size or not y.size:
         # Return NaN if arrays are empty
-        return KendalltauResult(np.nan, np.nan)
+        res = KendalltauResult(np.nan, np.nan)
 
     # check both x and y
     cnx, npx = _contains_nan(x, nan_policy)
@@ -5192,7 +5196,7 @@ def kendalltau(x, y, initial_lexsort=None, nan_policy='propagate',
         nan_policy = 'omit'
 
     if contains_nan and nan_policy == 'propagate':
-        return KendalltauResult(np.nan, np.nan)
+        res = KendalltauResult(np.nan, np.nan)
 
     elif contains_nan and nan_policy == 'omit':
         x = ma.masked_invalid(x)
@@ -5234,7 +5238,7 @@ def kendalltau(x, y, initial_lexsort=None, nan_policy='propagate',
     tot = (size * (size - 1)) // 2
 
     if xtie == tot or ytie == tot:
-        return KendalltauResult(np.nan, np.nan)
+        res = KendalltauResult(np.nan, np.nan)
 
     # Note that tot = con + dis + (xtie - ntie) + (ytie - ntie) + ntie
     #               = con + dis + xtie + ytie - ntie
@@ -5276,7 +5280,9 @@ def kendalltau(x, y, initial_lexsort=None, nan_policy='propagate',
         raise ValueError(f"Unknown method {method} specified.  Use 'auto', "
                          "'exact' or 'asymptotic'.")
 
-    return KendalltauResult(tau, pvalue)
+    res = KendalltauResult(tau, pvalue)
+    res.statistic = res.correlation
+    return res
 
 
 WeightedTauResult = namedtuple('WeightedTauResult', ('correlation', 'pvalue'))
