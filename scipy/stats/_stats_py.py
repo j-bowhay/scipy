@@ -4740,7 +4740,8 @@ def fisher_exact(table, alternative='two-sided'):
     return SignificanceResult(oddsratio, pvalue)
 
 
-SpearmanrResult = _make_tuple_bunch('SpearmanrResult', ('correlation', 'pvalue'))
+SpearmanrResult = _make_tuple_bunch('SpearmanrResult',
+                                    ('correlation', 'pvalue'))
 
 
 def spearmanr(a, b=None, axis=0, nan_policy='propagate',
@@ -4798,7 +4799,7 @@ def spearmanr(a, b=None, axis=0, nan_policy='propagate',
     -------
     res : SpearmanrResult
         An object containing the following attributes:
-    
+
         correlation : float or ndarray (2-D square)
             Spearman correlation matrix or correlation coefficient (if only 2
             variables are given as parameters. Correlation matrix is square
