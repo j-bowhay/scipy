@@ -26,7 +26,6 @@ References
    York. 2000.
 
 """
-import re
 import warnings
 import math
 from math import gcd
