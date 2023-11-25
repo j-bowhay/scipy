@@ -3,12 +3,12 @@
 # cython: wraparound=False
 # cython: cdivision=True
 # cython: cpow=True
-# distutils: define_macros=NPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION
+# distutils: define_macros=NPY_NO_DEPRECATED_API=NPY_1_9_API_VERSION
 
 import numpy as np
 cimport numpy as cnp
 
-from libc.math cimport abs, log, exp, cos, sin, atan, sqrt, M_PI, M_PI_2
+from libc.math cimport abs, log, exp, cos, sin, atan, sqrt
 
 # Quick type converters ala _complexstuff.h
 ctypedef union _np_c_cplx_union:
@@ -26,6 +26,11 @@ cdef inline double complex to_dcomplex(cnp.npy_cdouble x) noexcept nogil:
     return z.cpp
 
 cdef extern from "numpy/npy_math.h":
+    double INF "NPY_INFINITY"
+    double PI "NPY_PI"
+    double PI_2 "NPY_PI_2"
+    double PI_4 "NPY_PI_4"
+    double NPY_1_PI
     double npy_cabs(cnp.npy_cdouble z) nogil
     double npy_carg(cnp.npy_cdouble z) nogil
     cnp.npy_cdouble npy_clog(cnp.npy_cdouble z) nogil
@@ -478,8 +483,13 @@ cdef struct ZunikVars:
     int init
 
 cdef (double complex, double complex, int, int) zs1s2(
-    double complex zr, double complex s1, double complex s2,
-    double ascle, double alim, int iuf) noexcept nogil:
+    double complex zr,
+    double complex s1,
+    double complex s2,
+    double ascle,
+    double alim,
+    int iuf
+) noexcept nogil:
     cdef double as1 = npy_cabs(to_cdouble(s1))
     cdef double as2 = npy_cabs(to_cdouble(s2))
     cdef double aa, aln
@@ -512,23 +522,6 @@ cdef inline bint zuchk(double complex y, double ascle, double tol) noexcept nogi
     else:
         st /= tol
         return True if ss < st else False
-
-
-# cdef inline (int) zuni1(double complex z, double fnu, int kode, int n,
-#                        double complex y, int nz, double fnul, double tol,
-#                        double elim, double alim) noexcept nogil:
-#     cdef double cscl = 1. / tol
-#     cdef double crsc = tol
-#     cdef double[3] cssr = [cscl, 1., crsc]
-#     cdef double[3] csrr = [crsc, 1., cscl]
-#     cdef double[3] bry = [1 + 3.*(d1mach / tol)]
-#     cdef int nz = 0
-#     cdef int nd = n
-#     cdef int nlast = 0
-
-#     fn = max(fnu, 1.)
-#     init = 0
-#     return init
 
 
 cdef inline void zunik(double complex zr, ZunikVars *Z) noexcept nogil:
@@ -604,9 +597,14 @@ cdef inline void zunik(double complex zr, ZunikVars *Z) noexcept nogil:
             return
 
 
-cdef inline (int) zkscl(double complex zr, double fnu, int n,
-                        double complex *y, double complex rz,
-                        double ascle, double tol, double elim) noexcept nogil:
+cdef inline int zkscl(double complex zr,
+                        double fnu,
+                        int n,
+                        double complex *y,
+                        double complex rz,
+                        double ascle,
+                        double tol,
+                        double elim) noexcept nogil:
     cdef int i, nw, kk
     cdef int nz = 0
     cdef int ic = 0
@@ -706,7 +704,6 @@ cdef inline void zunhj(double complex z,
                        double complex bsum) noexcept nogil:
 
     cdef double complex suma, sumb, st, w, w2, za, zc, zb, zd, zr, tfn
-    # AP(30), PR(30), PI(30), UPR(14), UPI(14), CRR(14), CRI(14), DRR(14), DRI(14)
 
     # Scratch arrays
     cdef double[30] ap
@@ -717,9 +714,9 @@ cdef inline void zunhj(double complex z,
 
     cdef double ex1 = 1./3.
     cdef double ex2 = 2./3.
-    cdef double hpi = M_PI_2
-    cdef double gpi = M_PI
-    cdef double thpi = M_PI + M_PI_2
+    cdef double hpi = PI_2
+    cdef double gpi = PI
+    cdef double thpi = PI + PI_2
     cdef double rfnu, rfnu2, fn13, fn23, rfn13, test, ac, aw, raw, aw2, raw2
     cdef int jr, ju, k, kmax, kp1, ks, l1, l2, lr, lrp1, L
     rfnu = 1. / fnu
@@ -939,3 +936,237 @@ cdef inline void zunhj(double complex z,
             st = -bsum*rfn13
             bsum = st / rtzt
             return
+
+
+cdef inline int zasyi(double complex z,
+                       double fnu,
+                       int kode,
+                       int n,
+                       double complex *y,
+                       double rl,
+                       double tol,
+                       double elim
+                      ) noexcept nogil:
+
+    cdef double aa, ak, dfnu
+    cdef int i, ib, il, inu, j, jl, k, koded, m, nn
+    cdef double complex ak1, ck, cs1, cs2, cz, dk, ez, p1, rz, st, tz, zr
+    cdef double rtpi = 0.5*NPY_1_PI
+    cdef int nz = 0
+
+    az = ccabs(z)
+    arm = 1. + 3.+d1mach[0]
+    rtr1 = sqrt(arm)
+    il = min(2, n)
+    dfnu = fnu + (n - il)
+    raz = 1. / az
+    st = zr.conjugate() * raz
+    ak1 = rtpi*raz*st
+    ak1 = ccsqrt(ak1)
+    cz = z
+    if kode != 2:
+        pass
+    else:
+        cz = 0.
+
+    if abs(cz.real) > elim:
+        return -1
+    dnu2 = dfnu + dfnu
+    koded = 1
+
+    if (abs(cz.real) > elim) and (n > 2):
+        pass
+    else:
+        koded = 0
+        st = ccexp(cz)
+        ak1 *= st
+
+    fdn = 0.
+    if dnu2 > rtr1:
+        fdn = dnu2*dnu2
+    ez = zr*8
+    aez = 8*az
+    s = tol / aez
+    jl = <int>(rl+rl+2)
+    p1 = 0.
+    if z.imag != 0.:
+        inu = <int>fnu
+        arg = (fnu - inu)*PI
+        inu += n - il
+        ak = -sin(arg)
+        bk = cos(arg)
+        if z.imag < 0:
+            bk = -bk
+        p1 = -p1
+
+    for k in range(1, il+1):
+        sqk = fdn - 1.
+        atol = s*abs(sqk)
+        sgn, cs1, cs2, ck, ak, aa = 1., 1., 1., 1., 0., 1.
+        bb, dk = aez, ez
+
+        for j in range(1, jl+1):
+            st = ck/dk
+            ck = st*sqk
+            cs2 += ck
+            sgn = -sgn
+            cs1 += dk*sgn
+            dk += ez
+            aa *= abs(sqk)/bb
+            bb += aez
+            ak += 8.
+            sqk -= ak
+            if aa > atol:
+                return -2
+
+        s2 = cs1
+        if (z.real + z.real < elim):
+            tz = z + z
+            st = ccexp(tz)
+            st *= p1
+            st *= cs2
+            s2 += st
+
+        fdn += 8.*dfnu + 4.
+        p1 = -p1
+        m = n - il + k
+        y[m - 1] = s2*ak1
+
+    if n < 2:
+        return nz
+    nn = n
+    k = nn - 2
+    ak = k
+    st = z.conjugate()*raz
+    rz = (st + st)*raz
+    ib = 3
+    for i in range(ib, nn+1):
+        y[k - 1] = (ak + fnu)*(rz*y[k]) + y[k+1]
+        ak -= 1.
+        k -= 1
+
+    if koded == 0:
+        return nz
+
+    ck = ccexp(cz)
+    for i in range(1, nn):
+        y[i - 1] *= ck
+
+    return nz
+
+
+cdef inline int zasyi(double complex z,
+                       double fnu,
+                       int kode,
+                       int n,
+                       double complex *y,
+                       double rl,
+                       double tol,
+                       double elim
+                      ) noexcept nogil:
+
+    cdef double aa, ak, dfnu
+    cdef int i, ib, il, inu, j, jl, k, koded, m, nn
+    cdef double complex ak1, ck, cs1, cs2, cz, dk, ez, p1, rz, st, tz, zr
+    cdef double rtpi = 0.5*NPY_1_PI
+    cdef int nz = 0
+
+    az = ccabs(z)
+    arm = 1. + 3.+d1mach[0]
+    rtr1 = sqrt(arm)
+    il = min(2, n)
+    dfnu = fnu + (n - il)
+    raz = 1. / az
+    st = zr.conjugate() * raz
+    ak1 = rtpi*raz*st
+    ak1 = ccsqrt(ak1)
+    cz = z
+    if kode != 2:
+        pass
+    else:
+        cz = 0.
+
+    if abs(cz.real) > elim:
+        return -1
+    dnu2 = dfnu + dfnu
+    koded = 1
+
+    if (abs(cz.real) > elim) and (n > 2):
+        pass
+    else:
+        koded = 0
+        st = ccexp(cz)
+        ak1 *= st
+
+    fdn = 0.
+    if dnu2 > rtr1:
+        fdn = dnu2*dnu2
+    ez = zr*8
+    aez = 8*az
+    s = tol / aez
+    jl = <int>(rl+rl+2)
+    p1 = 0.
+    if z.imag != 0.:
+        inu = <int>fnu
+        arg = (fnu - inu)*PI
+        inu += n - il
+        ak = -sin(arg)
+        bk = cos(arg)
+        if z.imag < 0:
+            bk = -bk
+        p1 = -p1
+
+    for k in range(1, il+1):
+        sqk = fdn - 1.
+        atol = s*abs(sqk)
+        sgn, cs1, cs2, ck, ak, aa = 1., 1., 1., 1., 0., 1.
+        bb, dk = aez, ez
+
+        for j in range(1, jl+1):
+            st = ck/dk
+            ck = st*sqk
+            cs2 += ck
+            sgn = -sgn
+            cs1 += dk*sgn
+            dk += ez
+            aa *= abs(sqk)/bb
+            bb += aez
+            ak += 8.
+            sqk -= ak
+            if aa > atol:
+                return -2
+
+        s2 = cs1
+        if (z.real + z.real < elim):
+            tz = z + z
+            st = ccexp(tz)
+            st *= p1
+            st *= cs2
+            s2 += st
+
+        fdn += 8.*dfnu + 4.
+        p1 = -p1
+        m = n - il + k
+        y[m - 1] = s2*ak1
+
+    if n < 2:
+        return nz
+    nn = n
+    k = nn - 2
+    ak = k
+    st = z.conjugate()*raz
+    rz = (st + st)*raz
+    ib = 3
+    for i in range(ib, nn+1):
+        y[k - 1] = (ak + fnu)*(rz*y[k]) + y[k+1]
+        ak -= 1.
+        k -= 1
+
+    if koded == 0:
+        return nz
+
+    ck = ccexp(cz)
+    for i in range(1, nn):
+        y[i - 1] *= ck
+
+    return nz
