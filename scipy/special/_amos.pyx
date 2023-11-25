@@ -3,8 +3,6 @@
 # cython: wraparound=False
 # cython: cdivision=True
 # cython: cpow=True
-# distutils: define_macros=NPY_NO_DEPRECATED_API=NPY_1_9_API_VERSION
-
 import numpy as np
 cimport numpy as cnp
 
@@ -514,6 +512,7 @@ cdef (double complex, double complex, int, int) zs1s2(
     else:
         return 0., 0., 1, 0
 
+
 cdef inline bint zuchk(double complex y, double ascle, double tol) noexcept nogil:
     cdef double st = min(abs(y.real), abs(y.imag))
     cdef double ss = max(abs(y.real), abs(y.imag))
@@ -692,19 +691,23 @@ cdef inline int zkscl(double complex zr,
     return nz
 
 
-cdef inline void zunhj(double complex z,
-                       double fnu,
-                       int ipmtr,
-                       double tol,
-                       double complex phi,
-                       double complex arg,
-                       double complex zeta1,
-                       double complex zeta2,
-                       double complex asum,
-                       double complex bsum) noexcept nogil:
+cdef inline (double complex,  # phi
+             double complex,  # arg
+             double complex,  # zeta1
+             double complex,  # zeta2
+             double complex,  # asum
+             double complex   # bsum
+            ) zunhj(double complex z,
+                    double fnu,
+                    int ipmtr,
+                    double tol) noexcept nogil:
+    """
+    If ipmtr is =1 then asum, bsum are not computed and returned zero.
+    """
 
     cdef double complex suma, sumb, st, w, w2, za, zc, zb, zd, zr, tfn
-
+    cdef double complex asum = 0.
+    cdef double complex bsum = 0.
     # Scratch arrays
     cdef double[30] ap
     cdef double complex[30] p
@@ -728,7 +731,7 @@ cdef inline void zunhj(double complex z,
         zeta2 = fnu
         phi = 1.
         arg = 1.
-        return
+        return phi, arg, zeta1, zeta2, asum, bsum
 
     zb = zr*rfnu
     rfnu2 = rfnu*rfnu
@@ -762,7 +765,7 @@ cdef inline void zunhj(double complex z,
         phi = st*rfn13
 
         if ipmtr == 1:
-            return
+            return phi, arg, zeta1, zeta2, asum, bsum
 
         sumb = 0.
         for k in range(1, kmax+1):
@@ -775,7 +778,7 @@ cdef inline void zunhj(double complex z,
             asum += 1.
             pp = rfnu*rfn13
             bsum *= pp
-            return
+            return phi, arg, zeta1, zeta2, asum, bsum
         else:
             for inds in range(1,7):
                 atol /= rfnu2
@@ -808,7 +811,7 @@ cdef inline void zunhj(double complex z,
             asum += 1.
             pp = rfnu*rfn13
             bsum *= pp
-            return
+            return phi, arg, zeta1, zeta2, asum, bsum
 
     # ccabs(w2) > 0.25
     else:
@@ -857,7 +860,7 @@ cdef inline void zunhj(double complex z,
         phi = st*rfn13
 
         if ipmtr == 1:
-            return
+            return phi, arg, zeta1, zeta2, asum, bsum
 
         raw = 1 / sqrt(aw2)
         st = w.conjugate() * raw
@@ -877,7 +880,7 @@ cdef inline void zunhj(double complex z,
             asum += 1.
             st = -bsum*rfn13
             bsum = st / rtzt
-            return
+            return phi, arg, zeta1, zeta2, asum, bsum
         else:
             przth = rzth
             ptfn = tfn
@@ -935,7 +938,7 @@ cdef inline void zunhj(double complex z,
             asum += 1.
             st = -bsum*rfn13
             bsum = st / rtzt
-            return
+            return phi, arg, zeta1, zeta2, asum, bsum
 
 
 cdef inline int zasyi(double complex z,
@@ -1055,118 +1058,166 @@ cdef inline int zasyi(double complex z,
     return nz
 
 
-cdef inline int zasyi(double complex z,
+cdef inline int zuoik(double complex z,
                        double fnu,
                        int kode,
+                       int ikflg,
                        int n,
                        double complex *y,
-                       double rl,
                        double tol,
-                       double elim
+                       double elim,
+                       double alim
                       ) noexcept nogil:
 
-    cdef double aa, ak, dfnu
-    cdef int i, ib, il, inu, j, jl, k, koded, m, nn
-    cdef double complex ak1, ck, cs1, cs2, cz, dk, ez, p1, rz, st, tz, zr
-    cdef double rtpi = 0.5*NPY_1_PI
-    cdef int nz = 0
+    cdef double aargh, aphi, ax, ay, gnu, fnn, gnn, rcz
+    cdef int i, idum, iform, init, nw
+    cdef int nn = n
+    cdef int nuf = 0,
+    cdef double complex phi, arg, zeta1, zeta2, asum, bsum
+    cdef double complex zr = z
+    cdef double aic = 1.265512123484645396  # log(-gamma(-0.5)) = log(2*sqrt(pi))?
+    cdef ZunikVars Z
 
-    az = ccabs(z)
-    arm = 1. + 3.+d1mach[0]
-    rtr1 = sqrt(arm)
-    il = min(2, n)
-    dfnu = fnu + (n - il)
-    raz = 1. / az
-    st = zr.conjugate() * raz
-    ak1 = rtpi*raz*st
-    ak1 = ccsqrt(ak1)
-    cz = z
-    if kode != 2:
-        pass
+    if z.real < 0.:
+        zr = -z
+    zb = zr
+    ax = abs(z.real)*sqrt(3.)
+    ay = abs(z.imag)
+    iform = 1
+    if ay > ax:
+        iform = 2
+    gnu = max(fnu, 1.)
+    if ikflg != 1:
+        gnu = max(fnu + nn - 1, nn)
+
+    if iform == 2:
+        zn = zr.conjugate()
+        if z.imag <= 0.:
+            zn.real = -zn.real
+        phi, arg, zeta1, zeta2, asum, bsum = zunhj(zn, fnu=gnu, ipmtr=1, tol=tol)
+        cz = zeta2 - zeta1
+        aargh = ccabs(arg)
+
     else:
-        cz = 0.
+        Z.init = 0
+        Z.fnu = gnu
+        Z.tol = tol
+        Z.ikflg = ikflg
+        Z.ipmtr = 1
+        zunik(zr, &Z)
+        phi, zeta1, zeta2 = (Z.Phi, Z.Zeta1, Z.Zeta2)
+        cz = zeta2 - zeta1
 
-    if abs(cz.real) > elim:
+    # 50
+    if kode != 1:
+        cz -= zb
+    if ikflg != 1:
+        cz = -cz
+    # 70
+    aphi = ccabs(phi)
+    rcz = cz.real
+
+    if rcz > elim:
         return -1
-    dnu2 = dfnu + dfnu
-    koded = 1
 
-    if (abs(cz.real) > elim) and (n > 2):
-        pass
+    # reconvene at 130
+    if rcz >= alim:
+        rcz += log(aphi)
+        if (iform == 2):
+            rcz -= 0.25*log(aargh) + aic
+
+        if rcz > elim:
+            return -1
     else:
-        koded = 0
-        st = ccexp(cz)
-        ak1 *= st
+        # 80
+        if rcz < -elim:
+            # 90
+            for i in range(1, nn+1):
+                y[i-1] = 0.
+            return nn
 
-    fdn = 0.
-    if dnu2 > rtr1:
-        fdn = dnu2*dnu2
-    ez = zr*8
-    aez = 8*az
-    s = tol / aez
-    jl = <int>(rl+rl+2)
-    p1 = 0.
-    if z.imag != 0.:
-        inu = <int>fnu
-        arg = (fnu - inu)*PI
-        inu += n - il
-        ak = -sin(arg)
-        bk = cos(arg)
-        if z.imag < 0:
-            bk = -bk
-        p1 = -p1
+        if rcz > -alim:
+            pass
+        else:
+            rcz += log(aphi)
+            if iform == 2:
+                rcz -= 0.25*log(aargh) + aic
 
-    for k in range(1, il+1):
-        sqk = fdn - 1.
-        atol = s*abs(sqk)
-        sgn, cs1, cs2, ck, ak, aa = 1., 1., 1., 1., 0., 1.
-        bb, dk = aez, ez
+            if rcz <= -elim:
+                # 90
+                for i in range(1, nn+1):
+                    y[i-1] = 0.
+                return nn
 
-        for j in range(1, jl+1):
-            st = ck/dk
-            ck = st*sqk
-            cs2 += ck
-            sgn = -sgn
-            cs1 += dk*sgn
-            dk += ez
-            aa *= abs(sqk)/bb
-            bb += aez
-            ak += 8.
-            sqk -= ak
-            if aa > atol:
-                return -2
+            ascle = 1.+3.*d1mach[0]/tol
+            st = cclog(phi)
+            cz += st
+            if iform != 1:
+                st = cclog(arg)
+                cz -= 0.25*st - aic
 
-        s2 = cs1
-        if (z.real + z.real < elim):
-            tz = z + z
-            st = ccexp(tz)
-            st *= p1
-            st *= cs2
-            s2 += st
+            #120
+            ax = exp(rcz)/tol
+            ay = cz.imag
+            cz = ax*(cos(ay)+1.j*sin(ay))
+            if zuchk(cz, ascle, tol):
+                # 90
+                for i in range(1, nn+1):
+                    y[i-1] = 0.
+                return nn
+    # 130
+    if (ikflg == 2) or (n == 1):
+        return nuf
 
-        fdn += 8.*dfnu + 4.
-        p1 = -p1
-        m = n - il + k
-        y[m - 1] = s2*ak1
+    while True:
+    # 140
+        gnu = fnu + nn - 1
+        if iform == 2:
+            phi, arg, zeta1, zeta2, asum, bsum = zunhj(zn, fnu=gnu, ipmtr=1, tol=tol)
+            cz = zeta2 - zeta1
+            aargh = ccabs(arg)
 
-    if n < 2:
-        return nz
-    nn = n
-    k = nn - 2
-    ak = k
-    st = z.conjugate()*raz
-    rz = (st + st)*raz
-    ib = 3
-    for i in range(ib, nn+1):
-        y[k - 1] = (ak + fnu)*(rz*y[k]) + y[k+1]
-        ak -= 1.
-        k -= 1
+        else:
+            Z.init = 0
+            Z.fnu = gnu
+            Z.ipmtr = 1
+            zunik(zr, &Z)
+            phi, zeta1, zeta2 = (Z.Phi, Z.Zeta1, Z.Zeta2)
+            cz = zeta2 - zeta1
 
-    if koded == 0:
-        return nz
+        if kode != 1:
+            cz -= zb
 
-    ck = ccexp(cz)
-    for i in range(1, nn):
-        y[i - 1] *= ck
+        # 170
+        aphi = ccabs(phi)
+        rcz = cz.real
 
-    return nz
+        if rcz >= -elim:
+            if rcz > -alim:
+                return nuf
+            rcz += log(aphi)
+            if iform == 2:
+                rcz -= 0.25*log(aargh) + aic
+
+            if rcz > -elim:
+                ascle = 1.+3.*d1mach[0]/tol
+                st = cclog(phi)
+                cz += st
+            if iform != 1:
+                st = cclog(arg)
+                cz -= 0.25*st - aic
+
+            # 200
+            ax = exp(rcz)/tol
+            ay = cz.imag
+            cz = ax*(cos(ay)+1.j*sin(ay))
+            if not (zuchk(cz, ascle, tol)):
+                return nuf
+
+
+        # 180
+        y[nn - 1] = 0.
+        nn -= 1
+        nuf += 1
+        if nn == 0:
+            return nuf
