@@ -468,479 +468,8 @@ cdef double[22] dgamln_cf =  [8.33333333333333333e-02, -2.77777777777777778e-03,
                               3.47320283765002252e+11, -1.23696021422692745e+13,
                               4.88788064793079335e+14, -2.13203339609193739e+16]
 
-cdef struct ZunikVars:
-    double complex Phi
-    double complex Zeta1
-    double complex Zeta2
-    double complex Sum
-    double complex[16] Cwrkr
-    double fnu
-    double tol
-    int ikflg
-    int ipmtr
-    int init
 
-cdef (double complex, double complex, int, int) zs1s2(
-    double complex zr,
-    double complex s1,
-    double complex s2,
-    double ascle,
-    double alim,
-    int iuf
-) noexcept nogil:
-    cdef double as1 = npy_cabs(to_cdouble(s1))
-    cdef double as2 = npy_cabs(to_cdouble(s2))
-    cdef double aa, aln
-    cdef double complex s1d
-    cdef double complex c1
-    cdef int nz = 0
-    if not (s1 == 0. or as1 == 0.):
-        aln = -zr.real - zr.real + log(as1)
-        s1d = s1
-        s1 = 0.
-        as1 = 0.
-        if aln >= -alim:
-            c1 = cclog(s1d)
-            c1 -= zr
-            c1 -= zr
-            s1 = ccexp(c1)
-            as1 = ccabs(s1)
-    aa = max(as1, as2)
-    iuf += 1
-    if aa > ascle:
-        return s1, s2, nz, iuf
-    else:
-        return 0., 0., 1, 0
-
-
-cdef inline bint zuchk(double complex y, double ascle, double tol) noexcept nogil:
-    cdef double st = min(abs(y.real), abs(y.imag))
-    cdef double ss = max(abs(y.real), abs(y.imag))
-    if st > ascle:
-        return False
-    else:
-        st /= tol
-        return True if ss < st else False
-
-
-cdef inline void zunik(double complex zr, ZunikVars *Z) noexcept nogil:
-    cdef double ac, crfni, crfnr, rfn, test
-    cdef double one = 1.
-    cdef double complex t, t2, s, sr, st, zn
-    cdef int j, k, ind
-    cdef double[2] con = [3.98942280401432678e-01,  1.25331413731550025e+00]
-
-
-    if Z.init == 0:
-        rfn = 1. / Z.fnu
-        test = d1mach[0]*1e3
-        ac = Z.fnu*test
-        if (abs(zr.real) <= ac) and (abs(zr.imag) <= ac):
-            Z.Zeta1 = 2.*abs(log(test)) + Z.fnu
-            Z.Zeta2 = Z.fnu
-            Z.Phi = 1.
-            return
-
-        t = zr*rfn
-        s = 1 + (zr*rfn)**2.
-        sr = ccsqrt(s)
-        st = 1. + sr
-        zn = st / t  #  ZDIV(AR, AI, BR, BI, CR, CI) --> C = A / B
-        st = cclog(zn)  # AZLOG(AR, AI, BR, BI, IERR) --> B = AZLOG(A)
-        Z.Zeta1 = Z.fnu * st
-        Z.Zeta2 = Z.fnu * sr
-        t = 1. / sr
-        sr = t * rfn
-        Z.Cwrkr[15] = ccsqrt(sr)
-        Z.Phi = Z.Cwrkr[15] * con[Z.ikflg]
-
-        if Z.ipmtr > 0:
-            return
-
-        t2 = 1 / s
-        Z.Cwrkr[0] = 1.
-        crfn, ac, ind= 1., 1., 1
-
-        for k in range(1, 15):
-            s = 0.
-            for j in range(k+1):
-                ind += 1
-                s *= t2
-                s += zunik_c[ind]
-            st = crfn * sr
-            Z.Cwrkr[k] = crfn*s
-            ac *= rfn
-            test = ccabs(Z.Cwrkr[k])
-            if (ac < Z.tol) and (test < Z.tol):
-                break
-
-        k = 14
-        Z.init = k
-
-        if Z.ikflg == 2:
-            s = 0.
-            t = 1.
-            for j in range(Z.init+1):
-                s += one*Z.Cwrkr[j]
-                one = -one
-            Z.Sum = s
-            Z.Phi = Z.Cwrkr[15]*con[1]
-            return
-        else:
-            s = 0.
-            t = 1.
-            for j in range(Z.init+1):
-                s += Z.Cwrkr[j]
-            Z.Sum = s
-            Z.Phi = Z.Cwrkr[15]*con[0]
-            return
-
-
-cdef inline int zkscl(double complex zr,
-                        double fnu,
-                        int n,
-                        double complex *y,
-                        double complex rz,
-                        double ascle,
-                        double tol,
-                        double elim) noexcept nogil:
-    cdef int i, nw, kk
-    cdef int nz = 0
-    cdef int ic = 0
-    cdef int nn = min(3, n+1)
-    cdef double helim = 0.5*elim
-    cdef double elm = exp(-elim)
-    cdef double celmr = elm
-    cdef double aas, acs, alas
-    cdef double complex s1, cs, ck, zd
-    cdef double complex[2] cy
-
-    for i in range(nn):
-        s1 = y[i]
-        cy[i] = s1
-        aas = ccabs(s1)
-        acs = -zr.real + log(aas)
-        nz += 1
-        y[i] = 0.
-        if (acs < -elim):
-            continue
-
-        cs = cclog(s1)
-        cs -= zr
-        cs = (exp(cs.real)/tol)*(cos(cs.imag) + 1.j*sin(cs.imag))
-        if zuchk(cs, ascle, tol):
-            continue
-        y[i] = cs
-        ic = i
-        nz -= 1
-    if n == 1:
-        return nz
-    if ic == 0:
-        y[0] = 0.
-        nz = 2
-
-    if n == 0 or nz == 0:
-        return 0
-    fn = fnu + 1.
-    ck = fn*rz
-    s1 = cy[0]
-    s2 = cy[1]
-    zd = zr
-
-    for i in range(2, n+1):
-        kk = i
-        cs = s2
-        s2 = s1 + ck*cs
-        s1 = cs
-        ck += rz
-        aas = ccabs(s2)
-        alas = log(aas)
-        acs = -zd.real + alas
-        nz += 1
-        y[i] = 0.
-        if acs >= -elim:
-            cs = cclog(s2)
-            cs -= zd
-            cs = (exp(cs.real)/tol)*(cos(cs.imag) + 1.j*sin(cs.imag))
-            if zuchk(cs, ascle, tol):
-                pass
-            else:
-                y[i] = cs
-                nz -= 1
-                if ic == kk - 1:
-                    break
-                ic = kk
-        else:
-            # 25
-            if alas < helim:
-                continue
-            zd -= elim
-            s1 *= celmr
-            s2 *= celmr
-
-    if ic != kk - 1:
-        nz = n
-        if ic == n:
-            nz = n - 1
-    else:
-        nz = kk - 2
-
-    for i in range(nz + 1):
-        y[i] = 0.
-
-    return nz
-
-
-cdef inline (double complex,  # phi
-             double complex,  # arg
-             double complex,  # zeta1
-             double complex,  # zeta2
-             double complex,  # asum
-             double complex   # bsum
-            ) zunhj(double complex z,
-                    double fnu,
-                    int ipmtr,
-                    double tol) noexcept nogil:
-    """
-    If ipmtr is =1 then asum, bsum are not computed and returned zero.
-    """
-
-    cdef double complex suma, sumb, st, w, w2, za, zc, zb, zd, zr, tfn
-    cdef double complex asum = 0.
-    cdef double complex bsum = 0.
-    # Scratch arrays
-    cdef double[30] ap
-    cdef double complex[30] p
-    cdef double complex[30] up
-    cdef double complex[14] cr
-    cdef double complex[14] dr
-
-    cdef double ex1 = 1./3.
-    cdef double ex2 = 2./3.
-    cdef double hpi = PI_2
-    cdef double gpi = PI
-    cdef double thpi = PI + PI_2
-    cdef double rfnu, rfnu2, fn13, fn23, rfn13, test, ac, aw, raw, aw2, raw2
-    cdef int jr, ju, k, kmax, kp1, ks, l1, l2, lr, lrp1, L
-    rfnu = 1. / fnu
-    test = d1mach[0]*1e3
-    ac = fnu*test
-
-    if (abs(z.real) <= ac) and (abs(z.imag) <= ac ):
-        zeta1 = 2.*abs(log(test)) + fnu
-        zeta2 = fnu
-        phi = 1.
-        arg = 1.
-        return phi, arg, zeta1, zeta2, asum, bsum
-
-    zb = zr*rfnu
-    rfnu2 = rfnu*rfnu
-    fn13 = fnu**ex1
-    fn23 = fn13 * fn13
-    rfn13 = 1. / fn13
-    w2 = 1. + zb*zb
-    aw2 = ccabs(w2)
-    if aw2 > 0.25:
-        k = 1
-        p[0] = 1.
-        suma = zunhj_gama[0]
-        ap[0] = 1.
-        if aw2 >= tol:
-            for k in range(1, 30):
-                p[k] = p[k-1]*w2
-                suma += p[k]*zunhj_gama[k]
-                ap[k] = ap[k-1]*aw2
-                if ap[k] < tol:
-                    break
-        kmax = k
-        zeta = w2*suma
-        arg = zeta*fn23
-        za = ccsqrt(suma)
-        st = ccsqrt(w2)
-        zeta2 = st*fnu
-        st = zeta*za + 1.
-        zeta1 = st*zeta2
-        za += za
-        st = ccsqrt(za)
-        phi = st*rfn13
-
-        if ipmtr == 1:
-            return phi, arg, zeta1, zeta2, asum, bsum
-
-        sumb = 0.
-        for k in range(1, kmax+1):
-            sumb += p[k]*zunhj_beta[k]
-        asum = 0.
-        bsum = sumb
-        l1, l2, pp, ias, ibs = 0, 30, 1., 0, 0
-        atol, btol = tol, tol*(abs(bsum.real) + abs(bsum.imag))
-        if rfnu2 < tol:
-            asum += 1.
-            pp = rfnu*rfn13
-            bsum *= pp
-            return phi, arg, zeta1, zeta2, asum, bsum
-        else:
-            for inds in range(1,7):
-                atol /= rfnu2
-                pp *= rfnu2
-                if ias != 1:
-                    suma = 0.
-                    for k in range(kmax+1):
-                        suma += p[k]*zunhj_alfa[l1 + k]
-                        if ap[k] < atol:
-                            break
-                    asum += suma * pp
-                    if pp < tol:
-                        ias = 1
-                # 60
-                if ibs != 1:
-                    sumb = 0.
-                    for k in range(kmax+1):
-                        sumb += p[k]*zunhj_beta[l2 + k]
-                        if ap[k] < atol:
-                            break
-                    bsum += sumb * pp
-                    if pp < tol:
-                        ibs = 1
-                if (ias == 1) and (ibs == 1):
-                    break
-
-                l1 += 30
-                l2 += 30
-
-            asum += 1.
-            pp = rfnu*rfn13
-            bsum *= pp
-            return phi, arg, zeta1, zeta2, asum, bsum
-
-    # ccabs(w2) > 0.25
-    else:
-        w = ccsqrt(w2)
-        if w.real < 0:
-            w.real = 0.
-        if w.imag < 0:
-            w.imag = 0.
-
-        st = 1 + w
-        za = st / zb
-        zc = cclog(za)
-        if zc.real < 0:
-            zc.real = 0.
-        if zc.imag < 0:
-            zc.imag = 0.
-        if zc.imag > hpi:
-            zc.imag = hpi
-
-        zth = (zc - w)*1.5
-        zeta1 = zc*fnu
-        zeta2 = w*fnu
-        azth = ccabs(zth)
-        ang = thpi
-
-        if (zth.real >= 0.) and (zth.imag < 0.):
-            pass
-        else:
-            ang = hpi
-            if zth.real != 0.:
-                ang = atan(zth.imag/zth.real)
-            if zth.real < 0.:
-                ang += gpi
-
-        #140
-        pp = azth*ex2
-        ang *= ex2
-        zeta = pp*(cos(ang) + 1.j*sin(ang))
-        if zeta.imag < 0:
-            zeta.imag = 0.
-        arg = zeta*fn23
-        rtzt = zth / zeta
-        za = rtzt / w
-        tza = za + za
-        st = ccsqrt(tza)
-        phi = st*rfn13
-
-        if ipmtr == 1:
-            return phi, arg, zeta1, zeta2, asum, bsum
-
-        raw = 1 / sqrt(aw2)
-        st = w.conjugate() * raw
-        tfn = st*rfnu*raw
-        razth = 1. / azth
-        st = zth * razth
-        rzth = st*razth*rfnu
-        zc = rzth*zunhj_ar[1]
-        raw2 = 1. / aw2
-        st = w2.conjugate() * raw2
-        t2 = st*raw2
-        st = t2*zunhj_c[1] + zunhj_c[2]
-        up[1] = st*tfn
-        bsum = up[1] + zc
-        asum = 0.
-        if rfnu < tol:
-            asum += 1.
-            st = -bsum*rfn13
-            bsum = st / rtzt
-            return phi, arg, zeta1, zeta2, asum, bsum
-        else:
-            przth = rzth
-            ptfn = tfn
-            up[0] = 1.
-            pp = 1.
-            btol = tol*(abs(bsum.real) + abs(bsum.imag))
-            ks, kp1, L, ias, ibs = 0, 2, 3, 0, 0
-            # 210 loop
-            for lr in range(2, 13, 2):
-                lrp1 = lr + 1
-                for k in range(lr, lr+2):
-                    ks += 1
-                    kp1 += 1
-                    L += 1
-                    za = zunhj_c[L-1]
-
-                    for j in range(2, kp1 + 1):
-                        L += 1
-                        za = za * t2 + zunhj_c[L-1]
-
-                    ptfn *= tfn
-                    up[kp1 - 1] = ptfn*za
-                    cr[ks - 1] = przth*zunhj_br[ks]
-                    przth *= rzth
-                    dr[ks - 1] = przth*zunhj_ar[ks+1]
-
-                pp *= rfnu2
-                if ias != 1:
-                    suma = up[lr]
-                    ju = lrp1
-                    for jr in range(1, lrp1):
-                        ju -= 1
-                        suma += cr[jr - 1]*up[ju - 1]
-
-                    asum += suma
-                    test = abs(suma.real) + abs(suma.imag)
-                    if (pp < tol) and (test < tol):
-                        ias = 1
-
-                if ibs != 1:
-                    sumb = up[lrp1] + up[lrp1]*zc
-                    ju = lrp1
-                    for jr in range(1, lrp1):
-                        ju -= 1
-                        sumb += dr[jr - 1]*up[ju - 1]
-
-                    bsum += sumb
-                    test = abs(sumb.real) + abs(sumb.imag)
-                    if (pp < tol) and (test < tol):
-                        ias = 1
-
-                if (ias == 1) and (ibs == 1):
-                    break
-
-            asum += 1.
-            st = -bsum*rfn13
-            bsum = st / rtzt
-            return phi, arg, zeta1, zeta2, asum, bsum
-
-
+# %% --------------------------------------------------------------------------- zasyi
 cdef inline int zasyi(double complex z,
                        double fnu,
                        int kode,
@@ -1058,6 +587,468 @@ cdef inline int zasyi(double complex z,
     return nz
 
 
+# %% --------------------------------------------------------------------------- zkscl
+cdef inline int zkscl(double complex zr, double fnu, int n, double complex *y,
+                        double complex rz, double ascle, double tol, double elim
+                        ) noexcept nogil:
+    cdef int i, nw, kk
+    cdef int nz = 0
+    cdef int ic = 0
+    cdef int nn = min(3, n+1)
+    cdef double helim = 0.5*elim
+    cdef double elm = exp(-elim)
+    cdef double celmr = elm
+    cdef double aas, acs, alas
+    cdef double complex s1, cs, ck, zd
+    cdef double complex[2] cy
+
+    for i in range(nn):
+        s1 = y[i]
+        cy[i] = s1
+        aas = ccabs(s1)
+        acs = -zr.real + log(aas)
+        nz += 1
+        y[i] = 0.
+        if (acs < -elim):
+            continue
+
+        cs = cclog(s1)
+        cs -= zr
+        cs = (exp(cs.real)/tol)*(cos(cs.imag) + 1.j*sin(cs.imag))
+        if zuchk(cs, ascle, tol):
+            continue
+        y[i] = cs
+        ic = i
+        nz -= 1
+    if n == 1:
+        return nz
+    if ic == 0:
+        y[0] = 0.
+        nz = 2
+
+    if n == 0 or nz == 0:
+        return 0
+    fn = fnu + 1.
+    ck = fn*rz
+    s1 = cy[0]
+    s2 = cy[1]
+    zd = zr
+
+    for i in range(2, n+1):
+        kk = i
+        cs = s2
+        s2 = s1 + ck*cs
+        s1 = cs
+        ck += rz
+        aas = ccabs(s2)
+        alas = log(aas)
+        acs = -zd.real + alas
+        nz += 1
+        y[i] = 0.
+        if acs >= -elim:
+            cs = cclog(s2)
+            cs -= zd
+            cs = (exp(cs.real)/tol)*(cos(cs.imag) + 1.j*sin(cs.imag))
+            if zuchk(cs, ascle, tol):
+                pass
+            else:
+                y[i] = cs
+                nz -= 1
+                if ic == kk - 1:
+                    break
+                ic = kk
+        else:
+            # 25
+            if alas < helim:
+                continue
+            zd -= elim
+            s1 *= celmr
+            s2 *= celmr
+
+    if ic != kk - 1:
+        nz = n
+        if ic == n:
+            nz = n - 1
+    else:
+        nz = kk - 2
+
+    for i in range(nz + 1):
+        y[i] = 0.
+
+    return nz
+
+
+# %% --------------------------------------------------------------------------- zs1s2
+cdef (double complex, # s1
+      double complex, # s2
+      int,            # nz
+      int             # iuf
+     ) zs1s2 (
+    double complex zr,
+    double complex s1,
+    double complex s2,
+    double ascle,
+    double alim,
+    int iuf
+) noexcept nogil:
+    cdef double as1 = ccabs(s1)
+    cdef double as2 = ccabs(s2)
+    cdef double aa = s1.real
+    cdef double aln = s1.imag
+    cdef double complex s1d
+    cdef double complex c1
+    cdef int nz = 0
+    if (s1 != 0.) and (as1 != 0.):
+        aln = -zr.real - zr.real + log(as1)
+        s1d = s1
+        s1 = 0.
+        as1 = 0.
+        if aln >= -alim:
+            c1 = cclog(s1d)
+            c1 -= zr
+            c1 -= zr
+            s1 = ccexp(c1)
+            as1 = ccabs(s1)
+            iuf += 1
+
+    aa = max(as1, as2)
+    if aa > ascle:
+        return s1, s2, nz, iuf
+    else:
+        return 0., 0., 1, 0
+
+
+# %% --------------------------------------------------------------------------- zuchk
+cdef inline bint zuchk(double complex y, double ascle, double tol) noexcept nogil:
+    cdef double st = min(abs(y.real), abs(y.imag))
+    cdef double ss = max(abs(y.real), abs(y.imag))
+    if st > ascle:
+        return False
+    else:
+        st /= tol
+        return True if ss < st else False
+
+
+# %% --------------------------------------------------------------------------- zunik
+cdef struct ZunikVars:
+    double complex Phi
+    double complex Zeta1
+    double complex Zeta2
+    double complex Sum
+    double complex[16] Cwrkr
+    double fnu
+    double tol
+    int ikflg
+    int ipmtr
+    int init
+
+
+cdef inline void zunik(double complex zr, ZunikVars *Z) noexcept nogil:
+    cdef double ac, rfn, test
+    cdef double complex cfn, crfn, t, t2, s, sr, zn
+    cdef int j, k, ind
+    cdef double[2] con = [3.98942280401432678e-01,  1.25331413731550025e+00]
+
+    if Z.init == 0:
+        rfn = 1. / Z.fnu
+        test = d1mach[0]*1e3
+        ac = Z.fnu*test
+        if (abs(zr.real) <= ac) and (abs(zr.imag) <= ac):
+            Z.Zeta1 = 2.*abs(log(test)) + Z.fnu
+            Z.Zeta2 = Z.fnu
+            Z.Phi = 1.
+            return
+
+        t = zr*rfn
+        s = 1 + t*t
+        sr = ccsqrt(s)
+        zn = (1. + sr) / t
+        Z.Zeta1 = Z.fnu * cclog(zn)
+        Z.Zeta2 = Z.fnu * sr
+        t = 1. / sr
+        sr = t * rfn
+        Z.Cwrkr[15] = ccsqrt(sr)
+        Z.Phi = Z.Cwrkr[15] * con[Z.ikflg]
+
+        if Z.ipmtr > 0:
+            return
+
+        t2 = 1. / s
+        Z.Cwrkr[0] = 1.
+        crfn, ac, ind= 1., 1., 1
+
+        for k in range(2, 16):
+            s = 0.
+            for j in range(1, k+1):
+                ind += 1
+                s *= t2
+                s += zunik_c[ind-1]
+            crfn *= sr
+            Z.Cwrkr[k-1] = crfn*s
+            ac *= rfn
+            test = abs(Z.Cwrkr[k-1].real) + abs(Z.Cwrkr[k-1].imag)
+            if (ac < Z.tol) and (test < Z.tol):
+                break
+
+        Z.init = k
+
+    s, t = 0., 1.
+    if Z.ikflg == 2:
+        for j in range(Z.init + 1):
+            s += t * Z.Cwrkr[j]
+            t = -t
+        Z.Sum = s
+        Z.Phi = Z.Cwrkr[15]*con[1]
+        return
+    else:
+        for j in range(Z.init+1):
+            s += Z.Cwrkr[j]
+        Z.Sum = s
+        Z.Phi = Z.Cwrkr[15]*con[0]
+        return
+
+
+# %% --------------------------------------------------------------------------- zunhj
+cdef inline (
+    double complex,  # phi
+    double complex,  # arg
+    double complex,  # zeta1
+    double complex,  # zeta2
+    double complex,  # asum
+    double complex   # bsum
+    ) zunhj (
+    double complex z,
+    double fnu,
+    int ipmtr,
+    double tol
+) noexcept nogil:
+    """
+    If ipmtr is =1 then asum, bsum are not computed and returned zero.
+    """
+
+    cdef double complex suma, sumb, st, w, w2, za, zc, zb, zd, zr, tfn
+    cdef double complex zeta = 0.
+    cdef double complex asum = 0.
+    cdef double complex bsum = 0.
+    # Scratch arrays
+    cdef double[30] ap
+    cdef double complex[30] p
+    cdef double complex[30] up
+    cdef double complex[14] cr
+    cdef double complex[14] dr
+
+    cdef double ex1 = 1./3.
+    cdef double ex2 = 2./3.
+    cdef double hpi = PI_2
+    cdef double gpi = PI
+    cdef double thpi = PI + PI_2
+    cdef double rfnu, rfnu2, fn13, fn23, rfn13, test, ac, aw, raw, aw2, raw2
+    cdef int jr, ju, k, kmax, kp1, ks, l1, l2, lr, lrp1, L
+    rfnu = 1. / fnu
+
+    # Overflow test (z/fnu too small)
+    test = d1mach[0]*1e3
+    ac = fnu*test
+
+    if (abs(z.real) <= ac) and (abs(z.imag) <= ac ):
+        zeta1 = 2.*abs(log(test)) + fnu
+        zeta2 = fnu
+        phi = 1.
+        arg = 1.
+        return phi, arg, zeta1, zeta2, asum, bsum
+
+    # Compute in the fourth quadrant
+    zb = z * rfnu
+    rfnu2 = rfnu*rfnu
+
+    fn13 = fnu**ex1
+    fn23 = fn13 * fn13
+    rfn13 = 1. / fn13
+    w2 = 1. - zb*zb
+    aw2 = ccabs(w2)
+
+    if aw2 <= 0.25:
+        # Power series for abs(w2) <= 0.25
+        k = 1
+        p[0] = 1.
+        suma = zunhj_gama[0]
+        ap[0] = 1.
+        if aw2 >= tol:
+            for k in range(2, 31):
+                p[k-1] = p[k-2]*w2
+                suma += p[k-1]*zunhj_gama[k-1]
+                ap[k-1] = ap[k-2]*aw2
+                if ap[k-1] < tol:
+                    break
+    # 20
+        kmax = k
+        zeta = w2*suma
+        arg = zeta*fn23
+        za = ccsqrt(suma)
+        zeta2 = ccsqrt(w2)*fnu
+        zeta1 =  (ex2*zeta*za + 1.)*zeta2
+        za += za
+        phi = ccsqrt(za)*rfn13
+
+        if ipmtr == 1:
+            return phi, arg, zeta1, zeta2, asum, bsum
+
+        #  Sum series for asum and bsum
+        sumb = 0.
+        for k in range(kmax):
+            sumb += p[k]*zunhj_beta[k]
+    # 30
+        asum = 0.
+        bsum = sumb
+        l1, l2, pp, ias, ibs = 0, 30, 1., 0, 0
+        atol, btol = tol, tol*(abs(bsum.real) + abs(bsum.imag))
+        if rfnu2 >= tol:
+            for inds in range(1,7):
+                atol /= rfnu2
+                pp *= rfnu2
+                if ias != 1:
+                    suma = 0.
+                    for k in range(kmax):
+                        suma += p[k]*zunhj_alfa[l1 + k]
+                        if ap[k] < atol:
+                            break
+                    asum += suma * pp
+                    if pp < tol:
+                        ias = 1
+    # 60
+                if ibs != 1:
+                    sumb = 0.
+                    for k in range(kmax):
+                        sumb += p[k]*zunhj_beta[l2 + k]
+                        if ap[k] < atol:
+                            break
+                    bsum += sumb * pp
+                    if pp < tol:
+                        ibs = 1
+                if (ias == 1) and (ibs == 1):
+                    break
+
+                l1 += 30
+                l2 += 30
+    # 110
+        asum += 1.
+        pp = rfnu*rfn13
+        bsum *= pp
+        return phi, arg, zeta1, zeta2, asum, bsum
+
+    else:  # abs(w2) > 0.25
+        w = ccsqrt(w2)
+        if w.real < 0:
+            w.real = 0.
+        if w.imag < 0:
+            w.imag = 0.
+
+        za = (1 + w) / zb
+        zc = cclog(za)
+        if zc.real < 0:
+            zc.real = 0.
+        if zc.imag < 0:
+            zc.imag = 0.
+        if zc.imag > hpi:
+            zc.imag = hpi
+
+        zth = (zc - w)*1.5
+        zeta1 = zc*fnu
+        zeta2 = w*fnu
+        azth = ccabs(zth)
+        ang = thpi
+
+        if (zth.real < 0.) or (zth.imag >= 0.):
+            ang = hpi
+            if zth.real != 0.:
+                ang = atan(zth.imag/zth.real)
+            if zth.real < 0.:
+                ang += gpi
+
+        #140
+        pp = azth**ex2
+        ang *= ex2
+        zeta.real = pp * cos(ang)
+        zeta.imag = pp * sin(ang)
+        if zeta.imag < 0:
+            zeta.imag = 0.
+        arg = zeta*fn23
+        rtzt = zth / zeta
+        za = rtzt / w
+        phi = ccsqrt(za + za)*rfn13
+
+        if ipmtr == 1:
+            return phi, arg, zeta1, zeta2, asum, bsum
+
+        tfn = rfnu / w
+        rzth = rfnu / zth
+        zc = rzth*zunhj_ar[1]
+        t2 = 1 / w2
+        up[1] = (t2*zunhj_c[1] + zunhj_c[2])*tfn
+        bsum = up[1] + zc
+        asum = 0.
+        if rfnu >= tol:
+            przth = rzth
+            ptfn = tfn
+            up[0] = 1.
+            pp = 1.
+            btol = tol*(abs(bsum.real) + abs(bsum.imag))
+            ks, kp1, L, ias, ibs = 0, 2, 3, 0, 0
+    # 210 loop
+            for lr in range(2, 13, 2):
+                lrp1 = lr + 1
+                # Compute two additional cr, dr, and up for
+                # two more terms in next suma and sumb
+                for k in range(lr, lr+2):
+                    ks += 1
+                    kp1 += 1
+                    L += 1
+                    za = zunhj_c[L-1]
+
+                    for j in range(2, kp1 + 1):
+                        L += 1
+                        za = (za * t2) + zunhj_c[L-1]
+
+                    ptfn *= tfn
+                    up[kp1 - 1] = ptfn*za
+                    cr[ks - 1] = przth*zunhj_br[ks]
+                    przth *= rzth
+                    dr[ks - 1] = przth*zunhj_ar[ks+1]
+
+                pp *= rfnu2
+                if ias != 1:
+                    suma = up[lrp1-1]
+                    ju = lrp1
+                    for jr in range(1, lr+1):
+                        ju -= 1
+                        suma += cr[jr - 1]*up[ju - 1]
+
+                    asum += suma
+                    test = abs(suma.real) + abs(suma.imag)
+                    if (pp < tol) and (test < tol):
+                        ias = 1
+
+                if ibs != 1:
+                    sumb = up[lr+1] + up[lr]*zc
+                    ju = lrp1
+                    for jr in range(1, lr+1):
+                        ju -= 1
+                        sumb += dr[jr - 1]*up[ju - 1]
+
+                    bsum += sumb
+                    test = abs(sumb.real) + abs(sumb.imag)
+                    if (pp < tol) and (test < tol):
+                        ias = 1
+
+                if (ias == 1) and (ibs == 1):
+                    break
+    # 220
+        asum += 1.
+        bsum = -bsum*rfn13 / rtzt
+        return phi, arg, zeta1, zeta2, asum, bsum
+
+
+# %% --------------------------------------------------------------------------- zuoik
 cdef inline int zuoik(double complex z,
                        double fnu,
                        int kode,
@@ -1075,7 +1066,7 @@ cdef inline int zuoik(double complex z,
     cdef int nuf = 0,
     cdef double complex phi, arg, zeta1, zeta2, asum, bsum
     cdef double complex zr = z
-    cdef double aic = 1.265512123484645396  # log(-gamma(-0.5)) = log(2*sqrt(pi))?
+    cdef double aic = 1.265512123484645396  # log(2*sqrt(pi))
     cdef ZunikVars Z
 
     if z.real < 0.:
@@ -1125,19 +1116,18 @@ cdef inline int zuoik(double complex z,
         rcz += log(aphi)
         if (iform == 2):
             rcz -= 0.25*log(aargh) + aic
-
         if rcz > elim:
             return -1
     else:
-        # 80
+    # 80  UNDERFLOW TEST
         if rcz < -elim:
-            # 90
-            for i in range(1, nn+1):
-                y[i-1] = 0.
+    # 90
+            for i in range(nn):
+                y[i] = 0.
             return nn
 
         if rcz > -alim:
-            pass
+            pass  # goto 130
         else:
             rcz += log(aphi)
             if iform == 2:
@@ -1145,16 +1135,14 @@ cdef inline int zuoik(double complex z,
 
             if rcz <= -elim:
                 # 90
-                for i in range(1, nn+1):
-                    y[i-1] = 0.
+                for i in range(nn):
+                    y[i] = 0.
                 return nn
 
             ascle = 1.+3.*d1mach[0]/tol
-            st = cclog(phi)
-            cz += st
+            cz += cclog(phi)
             if iform != 1:
-                st = cclog(arg)
-                cz -= 0.25*st - aic
+                cz -= 0.25*cclog(arg) - aic
 
             #120
             ax = exp(rcz)/tol
@@ -1162,8 +1150,8 @@ cdef inline int zuoik(double complex z,
             cz = ax*(cos(ay)+1.j*sin(ay))
             if zuchk(cz, ascle, tol):
                 # 90
-                for i in range(1, nn+1):
-                    y[i-1] = 0.
+                for i in range(nn):
+                    y[i] = 0.
                 return nn
     # 130
     if (ikflg == 2) or (n == 1):
@@ -1176,16 +1164,13 @@ cdef inline int zuoik(double complex z,
             phi, arg, zeta1, zeta2, asum, bsum = zunhj(zn, fnu=gnu, ipmtr=1, tol=tol)
             cz = zeta2 - zeta1
             aargh = ccabs(arg)
-
         else:
-            Z.init = 0
-            Z.fnu = gnu
-            Z.ipmtr = 1
+            Z.init, Z.fnu, Z.ipmtr = 0, gnu, 1
             zunik(zr, &Z)
             phi, zeta1, zeta2 = (Z.Phi, Z.Zeta1, Z.Zeta2)
             cz = zeta2 - zeta1
 
-        if kode != 1:
+        if kode == 2:
             cz -= zb
 
         # 170
@@ -1201,11 +1186,9 @@ cdef inline int zuoik(double complex z,
 
             if rcz > -elim:
                 ascle = 1.+3.*d1mach[0]/tol
-                st = cclog(phi)
-                cz += st
-            if iform != 1:
-                st = cclog(arg)
-                cz -= 0.25*st - aic
+                cz += cclog(phi)
+                if iform != 1:
+                    cz -= 0.25*cclog(arg) + aic
 
             # 200
             ax = exp(rcz)/tol
@@ -1214,10 +1197,355 @@ cdef inline int zuoik(double complex z,
             if not (zuchk(cz, ascle, tol)):
                 return nuf
 
-
         # 180
         y[nn - 1] = 0.
         nn -= 1
         nuf += 1
         if nn == 0:
             return nuf
+
+
+# %% --------------------------------------------------------------------------- zunk1
+cdef inline int zunk1 (double complex z,
+                       double fnu,
+                       int kode,
+                       int mr,
+                       int n,
+                       double complex *y,
+                       int nz,
+                       double tol,
+                       double elim,
+                       double alim) noexcept nogil:
+    cdef double ang, aphi, asc, ascle, cpn, c2i, c2m, c2r
+    cdef double fmr, fn, fnf, rs1, sgn, spn
+
+    cdef int i, ib, iflag, ifn, il, init, inu, iuf, k, kdflg, kflag
+    cdef int kk, nw, initd, ic, ipard, j
+    cdef bint cond1, cond2
+    cdef double complex zr = z
+    cdef double cscl = tol
+    cdef double crsc = 1. / tol
+
+    cdef double[3] bry = [1+3.*d1mach[0]/tol, 1 / (1+3.*d1mach[0]/tol), d1mach[1]]
+    cdef double[3] css = [cscl, 1., crsc]
+    cdef double[3] csr = [crsc, 1., cscl]
+    cdef double complex[2] cy
+    cdef ZunikVars ZVar1, ZVar2, ZVar3
+    # Initialize the Zunik structs
+    ZVar1.ikflg = 2
+    ZVar1.ipmtr = 0
+    ZVar1.tol = tol
+    ZVar2.ikflg = 2
+    ZVar2.ipmtr = 0
+    ZVar2.tol = tol
+    ZVar3.ikflg = 2
+    ZVar3.tol = tol
+
+    for i in range(16):
+        ZVar1.Cwrkr[i] = 0.
+        ZVar2.Cwrkr[i] = 0.
+        ZVar3.Cwrkr[i] = 0.
+
+    kdflg = 0
+    nz = 0
+    if z.real < 0.:
+        zr = -z
+    j = 2
+    for i in range(1, n+1):
+        # j flip-flops between 1 and 2
+        j = 3 - j
+        fn = fnu + (i-1)
+
+        if j == 1:
+            ZVar1.init = 0
+            ZVar1.fnu = fn
+            zunik(zr, &ZVar1)
+        else:
+            ZVar2.init = 0
+            ZVar2.fnu = fn
+            zunik(zr, &ZVar2)
+
+        if kode != 1:
+            cfn = fn
+            if j == 1:
+                s1 = ZVar1.Zeta1 - cfn * (cfn/(zr + ZVar1.Zeta2))
+            else:
+                s1 = ZVar2.Zeta1 - cfn * (cfn/(zr + ZVar2.Zeta2))
+        else:
+            if j == 1:
+                s1 = ZVar1.Zeta1 - ZVar1.Zeta2
+            else:
+                s1 = ZVar2.Zeta1 - ZVar2.Zeta2
+
+        rs1 = s1.real
+        if abs(rs1) <= elim:
+            if kdflg == 1:
+                kdflg = 2
+            if abs(rs1) >= alim:
+                # refine test and scale
+                aphi = abs(ZVar1.Phi if j == 1 else ZVar2.Phi)
+                rs1 += log(aphi)
+                if abs(rs1) > elim:
+                    # For z.real < 0, the I function to be added will overflow
+                    if rs1 > 0. or z.real < 0.:
+                        return -1
+                    kdflg = 1
+                    y[i-1] = 0.
+                    nz += 1
+                    if i > 1 and y[i-2] != 0.:
+                        y[i-2] = 0.
+                        nz += 1
+                    continue
+                if kdflg == 1:
+                    kflag = 1
+                if rs1 >= 0. and kdflg == 1:
+                    kflag = 3
+            # Scale s1 to keep intermediate arithmetic on scale near
+            # exponent extremes
+            if j == 1:
+                s2 = ZVar1.Phi * ZVar1.Sum
+            else:
+                s2 = ZVar2.Phi * ZVar2.Sum
+            c2r = s1.real
+            c2i = s1.imag
+            c2m = exp(c2r)*css[kflag-1]
+            s1 = c2m * (cos(c2i) + 1.j*sin(c2i))
+            s2 *= s1
+            if kflag == 1:
+                if zuchk(s2, bry[0], tol):
+                    if rs1 > 0. or z.real < 0.:
+                        return -1
+                    kdflg = 1
+                    y[i-1] = 0.
+                    nz += 1
+                    if i > 1 and y[i-2] != 0.:
+                        y[i-2] = 0.
+                        nz += 1
+                    continue
+            cy[kdflg-1] = s2
+            y[i-1] = s2*csr[kflag-1]
+            if kdflg == 2:
+                break
+            kdflg = 2
+            continue
+
+        if rs1 > 0. or z.real < 0.:
+            return -1
+        kdflg = 1
+        y[i-1] = 0.
+        nz += 1
+        if i > 1 and y[i-2] != 0.:
+            y[i-2] = 0.
+            nz += 1
+
+    rz = 2. / zr
+    ck = fn * rz
+    ib = i+1
+    if n >= ib:
+        # test last member for underflow and overflow,
+        # set sequence to zero on underflow
+        fn = fnu + (n-1)
+        ipard = 1
+        if mr != 0:
+            ipard = 0
+        ZVar3.init = 0
+        ZVar3.fnu = fn
+        ZVar3.ipmtr = ipard
+        if kode != 1:
+            cfn = fn
+            s1 = ZVar3.Zeta1 - cfn * (cfn / (zr + ZVar3.Zeta2))
+        else:
+            s1 = ZVar3.Zeta1 - ZVar3.Zeta2
+
+        rs1 = s1.real
+        if abs(rs1) <= elim:
+            if abs(rs1) < alim:
+                pass
+            else:
+                aphi = abs(ZVar3.Phi)
+                rs1 += log(aphi)
+
+            if abs(rs1) < elim:
+                pass
+            else:
+                if (rs1 > 0.) or (z.real < 0.):
+                    return -1
+                for i in range(n):
+                    y[i] = 0.
+                return n
+
+        s1 = cy[0]
+        s2 = cy[1]
+        c1 = csr[kflag-1]
+        ascle = bry[kflag-1]
+        for i in range(ib, n+1):
+            c2 = s2
+            s2 = ck*s2 + s1
+            s1 = c2
+            ck += rz
+            c2 = s2 * c1
+            y[i-1] = c2
+            if (kflag < 3):
+                c2m = max(abs(c2.real), (c2.imag))
+                if c2m > ascle:
+                    kflag += 1
+                    ascle = bry[kflag-1]
+                    s1 *= c1
+                    s2 = c2
+                    s1 *= css[kflag-1]
+                    s2 *= css[kflag-1]
+                    c1 = csr[kflag-1]
+    if mr == 0:
+        return nz
+    # Analytic continuation for z.real < 0.
+    nz = 0
+    fmr = mr
+    sgn = - PI if fmr < 0 else PI
+    csgn = sgn*1.j
+    inu = <int>fnu
+    fnf = fnu - inu
+    ifn = inu + n - 1
+    ang = fnf * sgn
+    cspn = cos(ang) + sin(ang)*1.j
+    if ifn % 2 == 1:
+        cspn = -cspn
+    asc = bry[0]
+    kk = n
+    iuf = 0
+    kdflg = 1
+    ib = ib - 1
+    ic = ib - 1
+
+    for k in range(1, n+1):
+        fn = fnu + (kk - 1)
+        # Logic to sort out the cases whose parameters were set for the
+        # k function above
+        m = 3
+
+        # Explicitly combining if cases to untangle multiple nested gotos
+        cond1 = ((kk == n) and (ib < n))
+        cond2 = ((kk == ib) or (kk == ic))
+
+        if n > 2 and cond1:
+            # Do nothing jump to 180
+            pass
+        elif (n > 2 and (not cond1) and cond2) or n <= 2:
+            # do 172 and then 180
+            ZVar3.init = ZVar2.init if j == 2 else ZVar1.init
+            m = j
+            j = 3 - j
+        elif n > 2 and (not cond1) and (not cond2):
+            # Fall through continue to 180
+            ZVar3.init = 0
+    # 180
+        zunik(zr, &ZVar3)
+
+        if kode != 1:
+            cfn = fn
+            s1 = -ZVar3.Zeta1 + cfn * (cfn / (ZVar3.Zeta2 + zr))
+        else:
+            s1 = ZVar3.Zeta2 - ZVar3.Zeta1
+
+        rs1 = s1.real
+        if abs(rs1) > elim:
+            # goto 260
+            if rs1 > 0.:
+                return -1
+            s2 = 0.
+            # goto 230
+        else:
+            if kdflg == 1:
+                iflag = 2
+            if abs(rs1) >= alim:
+                # Refine Test and Scale
+                aphi = abs(ZVar3.Phi)
+                rs1 += log(aphi)
+                if abs(rs1) > elim:
+                    # goto 260
+                    if rs1 > 0:
+                        return -1
+                    s2 = 0.
+                    # goto 230
+                else:
+                    if kdflg == 1:
+                        iflag = 1
+                    if rs1 >= 0.:
+                        if kdflg == 1:
+                            iflag = 3
+                        s2 = csgn * ZVar3.Phi * ZVar3.Sum
+                        c2r = s1.real
+                        c2i = s1.imag
+                        c2m = exp(c2r)*css[kflag-1]
+                        s1 = c2m * (cos(c2i) + 1.j*sin(c2i))
+                        s2*= s1
+                        if iflag == 1:
+                            if zuchk(s2, bry[0], tol):
+                                s2 = 0.
+            else:
+                s2 = csgn * ZVar3.Phi * ZVar3.Sum
+                c2r = s1.real
+                c2i = s1.imag
+                c2m = exp(c2r)*css[kflag-1]
+                s1 = c2m * (cos(c2i) + 1.j*sin(c2i))
+                s2*= s1
+                if iflag == 1:
+                    if zuchk(s2, bry[0], tol):
+                        s2 = 0.
+    # 230
+        cy[kdflg-1] = s2
+        c2 = s2
+        s2 *= csr[iflag-1]
+        # Add I and K functions K sequence in y[i-1], i = 1,n
+        s1 = y[kk - 1]
+        if kode != 1:
+            s1, s2, nw, iuf = zs1s2(zr, s1, s2, ascle, alim, iuf)
+            nz += nw
+        y[kk - 1] = s1*cspn + s2
+        kk -= 1
+        cspn = -cspn
+        if c2 == 0.:
+            kdflg = 1
+            continue
+
+        if kdflg == 2:
+            break
+        kdflg = 2
+
+    # 275
+    il = n - k
+    if il == 0:
+        return nz
+    # recur backward for remainder of I sequence and add in the
+    # K functions, scaling the I sequence during recurrence to keep
+    # intermediate arithmetic on scale near exponent extremes.
+    s1 = cy[0]
+    s2 = cy[1]
+    cs = csr[iflag-1]
+    ascle = bry[iflag-1]
+    fn = inu + il
+    for i in range(1, il+1):
+        c2 = s2
+        s2 = s1 + (fn + fnf)*rz*s2
+        s1 = c2
+        fn -= 1.
+        c2 = s2*cs
+        ck = c2
+        c1 = y[kk-1]
+        if kode != 1:
+            c1, c2, nw, iuf = zs1s2(zr, c1, c2, ascle, alim, iuf)
+            nz += nw
+        y[kk - 1] = c1*cspn + c2
+        kk -= 1
+        cspn = -cspn
+        if iflag < 3:
+            c2m = max(abs(ck.real), abs(ck.imag))
+            if c2m > ascle:
+                iflag += 1
+                ascle = bry[iflag - 1]
+                s1 *= cs
+                s2 = ck
+                s1 *= css[iflag - 1]
+                s2 *= css[iflag - 1]
+                cs = csr[iflag -1]
+
+    return nz
