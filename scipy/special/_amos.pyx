@@ -5,52 +5,11 @@
 # cython: cpow=True
 import numpy as np
 cimport numpy as cnp
-
-from libc.math cimport abs, log, exp, cos, sin, atan, sqrt
-
-# Quick type converters ala _complexstuff.h
-ctypedef union _np_c_cplx_union:
-    cnp.npy_cdouble npy
-    double complex cpp
-
-cdef inline cnp.npy_cdouble to_cdouble(double complex x) noexcept nogil:
-    cdef _np_c_cplx_union z
-    z.cpp = x
-    return z.npy
-
-cdef inline double complex to_dcomplex(cnp.npy_cdouble x) noexcept nogil:
-    cdef _np_c_cplx_union z
-    z.npy = x
-    return z.cpp
-
-cdef extern from "numpy/npy_math.h":
-    double INF "NPY_INFINITY"
-    double PI "NPY_PI"
-    double PI_2 "NPY_PI_2"
-    double PI_4 "NPY_PI_4"
-    double NPY_1_PI
-    double npy_cabs(cnp.npy_cdouble z) nogil
-    double npy_carg(cnp.npy_cdouble z) nogil
-    cnp.npy_cdouble npy_clog(cnp.npy_cdouble z) nogil
-    cnp.npy_cdouble npy_cexp(cnp.npy_cdouble z) nogil
-    cnp.npy_cdouble npy_csin(cnp.npy_cdouble z) nogil
-    cnp.npy_cdouble npy_ccos(cnp.npy_cdouble z) nogil
-    cnp.npy_cdouble npy_csqrt(cnp.npy_cdouble z) nogil
-    cnp.npy_cdouble npy_cpow(cnp.npy_cdouble x, cnp.npy_cdouble y) nogil
-
-# regularized complex functions working with double complex
-# instead of fighting with libc, npy_cdouble and MSVC
-cdef inline double complex cclog(double complex z) noexcept nogil:
-    return to_dcomplex(npy_clog(to_cdouble(z)))
-
-cdef inline double complex ccexp(double complex z) noexcept nogil:
-    return to_dcomplex(npy_cexp(to_cdouble(z)))
-
-cdef inline double ccabs(double complex z) noexcept nogil:
-    return npy_cabs(to_cdouble(z))
-
-cdef inline double complex ccsqrt(double complex z) noexcept nogil:
-    return to_dcomplex(npy_csqrt(to_cdouble(z)))
+cnp.import_array()
+from cpython.mem cimport PyMem_Malloc, PyMem_Free
+from libc.math cimport (abs, log, exp, cos, sin, atan, sqrt, log10,
+                        M_PI as PI, M_PI_2 as PI_2, M_1_PI, INFINITY as INF, NAN)
+from libc.complex cimport (cabs, clog, cexp, csqrt,csin, ccos)
 
 cdef double[5] d1mach = [np.finfo(np.float64).tiny,
                          np.finfo(np.float64).max,
@@ -477,29 +436,26 @@ cdef inline int zasyi(double complex z,
                        double complex *y,
                        double rl,
                        double tol,
-                       double elim
+                       double elim,
+                       double alim
                       ) noexcept nogil:
 
     cdef double aa, ak, dfnu
     cdef int i, ib, il, inu, j, jl, k, koded, m, nn
     cdef double complex ak1, ck, cs1, cs2, cz, dk, ez, p1, rz, st, tz, zr
-    cdef double rtpi = 0.5*NPY_1_PI
+    cdef double rtpi = 0.5*M_1_PI
     cdef int nz = 0
 
-    az = ccabs(z)
+    az = cabs(z)
     arm = 1. + 3.+d1mach[0]
     rtr1 = sqrt(arm)
     il = min(2, n)
     dfnu = fnu + (n - il)
-    raz = 1. / az
-    st = zr.conjugate() * raz
-    ak1 = rtpi*raz*st
-    ak1 = ccsqrt(ak1)
+    ak1 = rtpi / z
+    ak1 = csqrt(ak1)
     cz = z
-    if kode != 2:
-        pass
-    else:
-        cz = 0.
+    if kode == 2:
+        cz.real = 0.
 
     if abs(cz.real) > elim:
         return -1
@@ -510,8 +466,7 @@ cdef inline int zasyi(double complex z,
         pass
     else:
         koded = 0
-        st = ccexp(cz)
-        ak1 *= st
+        ak1 *= cexp(cz)
 
     fdn = 0.
     if dnu2 > rtr1:
@@ -538,8 +493,7 @@ cdef inline int zasyi(double complex z,
         bb, dk = aez, ez
 
         for j in range(1, jl+1):
-            st = ck/dk
-            ck = st*sqk
+            ck = sqk / dk
             cs2 += ck
             sgn = -sgn
             cs1 += dk*sgn
@@ -554,7 +508,7 @@ cdef inline int zasyi(double complex z,
         s2 = cs1
         if (z.real + z.real < elim):
             tz = z + z
-            st = ccexp(tz)
+            st = cexp(tz)
             st *= p1
             st *= cs2
             s2 += st
@@ -580,7 +534,7 @@ cdef inline int zasyi(double complex z,
     if koded == 0:
         return nz
 
-    ck = ccexp(cz)
+    ck = cexp(cz)
     for i in range(1, nn):
         y[i - 1] *= ck
 
@@ -605,14 +559,14 @@ cdef inline int zkscl(double complex zr, double fnu, int n, double complex *y,
     for i in range(nn):
         s1 = y[i]
         cy[i] = s1
-        aas = ccabs(s1)
+        aas = cabs(s1)
         acs = -zr.real + log(aas)
         nz += 1
         y[i] = 0.
         if (acs < -elim):
             continue
 
-        cs = cclog(s1)
+        cs = clog(s1)
         cs -= zr
         cs = (exp(cs.real)/tol)*(cos(cs.imag) + 1.j*sin(cs.imag))
         if zuchk(cs, ascle, tol):
@@ -640,13 +594,13 @@ cdef inline int zkscl(double complex zr, double fnu, int n, double complex *y,
         s2 = s1 + ck*cs
         s1 = cs
         ck += rz
-        aas = ccabs(s2)
+        aas = cabs(s2)
         alas = log(aas)
         acs = -zd.real + alas
         nz += 1
         y[i] = 0.
         if acs >= -elim:
-            cs = cclog(s2)
+            cs = clog(s2)
             cs -= zd
             cs = (exp(cs.real)/tol)*(cos(cs.imag) + 1.j*sin(cs.imag))
             if zuchk(cs, ascle, tol):
@@ -691,8 +645,8 @@ cdef (double complex, # s1
     double alim,
     int iuf
 ) noexcept nogil:
-    cdef double as1 = ccabs(s1)
-    cdef double as2 = ccabs(s2)
+    cdef double as1 = cabs(s1)
+    cdef double as2 = cabs(s2)
     cdef double aa = s1.real
     cdef double aln = s1.imag
     cdef double complex s1d
@@ -704,11 +658,11 @@ cdef (double complex, # s1
         s1 = 0.
         as1 = 0.
         if aln >= -alim:
-            c1 = cclog(s1d)
+            c1 = clog(s1d)
             c1 -= zr
             c1 -= zr
-            s1 = ccexp(c1)
-            as1 = ccabs(s1)
+            s1 = cexp(c1)
+            as1 = cabs(s1)
             iuf += 1
 
     aa = max(as1, as2)
@@ -761,13 +715,13 @@ cdef inline void zunik(double complex zr, ZunikVars *Z) noexcept nogil:
 
         t = zr*rfn
         s = 1 + t*t
-        sr = ccsqrt(s)
+        sr = csqrt(s)
         zn = (1. + sr) / t
-        Z.Zeta1 = Z.fnu * cclog(zn)
+        Z.Zeta1 = Z.fnu * clog(zn)
         Z.Zeta2 = Z.fnu * sr
         t = 1. / sr
         sr = t * rfn
-        Z.Cwrkr[15] = ccsqrt(sr)
+        Z.Cwrkr[15] = csqrt(sr)
         Z.Phi = Z.Cwrkr[15] * con[Z.ikflg]
 
         if Z.ipmtr > 0:
@@ -865,7 +819,7 @@ cdef inline (
     fn23 = fn13 * fn13
     rfn13 = 1. / fn13
     w2 = 1. - zb*zb
-    aw2 = ccabs(w2)
+    aw2 = cabs(w2)
 
     if aw2 <= 0.25:
         # Power series for abs(w2) <= 0.25
@@ -884,11 +838,11 @@ cdef inline (
         kmax = k
         zeta = w2*suma
         arg = zeta*fn23
-        za = ccsqrt(suma)
-        zeta2 = ccsqrt(w2)*fnu
+        za = csqrt(suma)
+        zeta2 = csqrt(w2)*fnu
         zeta1 =  (ex2*zeta*za + 1.)*zeta2
         za += za
-        phi = ccsqrt(za)*rfn13
+        phi = csqrt(za)*rfn13
 
         if ipmtr == 1:
             return phi, arg, zeta1, zeta2, asum, bsum
@@ -937,14 +891,14 @@ cdef inline (
         return phi, arg, zeta1, zeta2, asum, bsum
 
     else:  # abs(w2) > 0.25
-        w = ccsqrt(w2)
+        w = csqrt(w2)
         if w.real < 0:
             w.real = 0.
         if w.imag < 0:
             w.imag = 0.
 
         za = (1 + w) / zb
-        zc = cclog(za)
+        zc = clog(za)
         if zc.real < 0:
             zc.real = 0.
         if zc.imag < 0:
@@ -955,7 +909,7 @@ cdef inline (
         zth = (zc - w)*1.5
         zeta1 = zc*fnu
         zeta2 = w*fnu
-        azth = ccabs(zth)
+        azth = cabs(zth)
         ang = thpi
 
         if (zth.real < 0.) or (zth.imag >= 0.):
@@ -975,7 +929,7 @@ cdef inline (
         arg = zeta*fn23
         rtzt = zth / zeta
         za = rtzt / w
-        phi = ccsqrt(za + za)*rfn13
+        phi = csqrt(za + za)*rfn13
 
         if ipmtr == 1:
             return phi, arg, zeta1, zeta2, asum, bsum
@@ -1087,7 +1041,7 @@ cdef inline int zuoik(double complex z,
             zn.real = -zn.real
         phi, arg, zeta1, zeta2, asum, bsum = zunhj(zn, fnu=gnu, ipmtr=1, tol=tol)
         cz = zeta2 - zeta1
-        aargh = ccabs(arg)
+        aargh = cabs(arg)
 
     else:
         Z.init = 0
@@ -1105,7 +1059,7 @@ cdef inline int zuoik(double complex z,
     if ikflg != 1:
         cz = -cz
     # 70
-    aphi = ccabs(phi)
+    aphi = cabs(phi)
     rcz = cz.real
 
     if rcz > elim:
@@ -1140,9 +1094,9 @@ cdef inline int zuoik(double complex z,
                 return nn
 
             ascle = 1.+3.*d1mach[0]/tol
-            cz += cclog(phi)
+            cz += clog(phi)
             if iform != 1:
-                cz -= 0.25*cclog(arg) - aic
+                cz -= 0.25*clog(arg) - aic
 
             #120
             ax = exp(rcz)/tol
@@ -1163,7 +1117,7 @@ cdef inline int zuoik(double complex z,
         if iform == 2:
             phi, arg, zeta1, zeta2, asum, bsum = zunhj(zn, fnu=gnu, ipmtr=1, tol=tol)
             cz = zeta2 - zeta1
-            aargh = ccabs(arg)
+            aargh = cabs(arg)
         else:
             Z.init, Z.fnu, Z.ipmtr = 0, gnu, 1
             zunik(zr, &Z)
@@ -1174,7 +1128,7 @@ cdef inline int zuoik(double complex z,
             cz -= zb
 
         # 170
-        aphi = ccabs(phi)
+        aphi = cabs(phi)
         rcz = cz.real
 
         if rcz >= -elim:
@@ -1186,9 +1140,9 @@ cdef inline int zuoik(double complex z,
 
             if rcz > -elim:
                 ascle = 1.+3.*d1mach[0]/tol
-                cz += cclog(phi)
+                cz += clog(phi)
                 if iform != 1:
-                    cz -= 0.25*cclog(arg) + aic
+                    cz -= 0.25*clog(arg) + aic
 
             # 200
             ax = exp(rcz)/tol
