@@ -2,6 +2,7 @@
 #include <complex.h>
 #include "_amos.h"
 
+
 int acai(
     double complex z,
     double fnu,
@@ -337,10 +338,10 @@ int asyi(
     x = creal(z);
     arm = 1e3*d1mach[0];
     rtr1 = sqrt(arm);
-    il = (2 <= n ? 2 : n);
+    il = (n > 2 ? 2 : n);
     dfnu = fnu + (n - il);
     // OVERFLOW TEST
-    ak1 = sqrt(rpi / z);
+    ak1 = csqrt(rpi / z);
     cz = z;
     if (kode == 2) { cz = z - x; }
     acz = creal(cz);
@@ -426,6 +427,323 @@ int asyi(
         for (int i = 0; i < (nn + 1); i++) { y[i] *= ck; }
     }
     return -1;
+}
+
+
+int binu(
+    double complex z,
+    double fnu,
+    int kode,
+    int n,
+    double complex *cy,
+    double rl,
+    double fnul,
+    double tol,
+    double elim,
+    double alim
+) {
+    double complex cw[2] = { 0. };
+    double az, dfnu;
+    int inw, nlast, nn, nui, nw, nz;
+
+    nz = 0;
+    az = cabs(z);
+    nn = n;
+    dfnu = fnu + n - 1;
+    if ((az <= 2.) || (az*az*0.25 <= (dfnu + 1.0))) {
+        /* GOTO 10 */
+        nw = seri(z,fnu, kode, n, cy, tol, elim, alim);
+        inw = abs(nw);
+        nz += inw;
+        nn -= inw;
+        if (nn == 0) { return nz; }
+        if (nw >= 0) { return nz; }
+        dfnu = fnu + nn - 1;
+    }
+    /* GOTO 30 conditions*/
+    //
+    // ASYMPTOTIC EXPANSION FOR LARGE Z
+    //
+    if (((az >= rl) && ((dfnu <= 1.0))) || ((dfnu > 1.0) && (az+az >= dfnu*dfnu))) {
+        //
+        // MILLER ALGORITHM NORMALIZED BY THE SERIES
+        //
+        nw = asyi(z, fnu, kode, n, cy, rl, tol, elim, alim);
+        if (nw < 0) {
+            nz = -1;
+            if (nw == -2) {
+                nz = -2;
+            }
+            return nz;
+        }
+        return nz;
+    }
+    /* 40 */
+    if (dfnu <= 1.0) {
+        nw = mlri(z, fnu, kode, n, cy, tol);
+        if (nw < 0) {
+            nz = -1;
+            if (nw == -2) {
+                nz = -2;
+            }
+            return nz;
+        }
+        return nz;
+    }
+    /* 50 */
+    //
+    // OVERFLOW AND UNDERFLOW TEST ON I SEQUENCE FOR MILLER ALGORITHM
+    //
+    nw = uoik(z, fnu, kode, 1, nn, cy, tol, elim, alim);
+    if (nw < 0) {
+        nz = -1;
+        if (nw == -2) { nz = -2; }
+        return nz;
+    }
+    nz += nw;
+    nn -= nw;
+    if (nn == 0) { return nz; }
+    dfnu = fnu + (nn -1);
+    /* GOTO 110s handled here */
+    if ((dfnu > fnul) || (az > fnul)) {
+        nui = (int)(fnul-dfnu) + 1;
+        nui = (nui > 0 ? nui : 0);
+        nw = buni(z, fnu, kode, nn, cy, nui, &nlast, fnul, tol, elim, alim);
+        if (nw < 0) {
+            nz = -1;
+            if (nw == -2) { nz = -2; }
+            return nz;
+        }
+        nz += nw;
+        if (nlast == 0) { return nz; }
+        nn = nlast;
+    }
+    /* 60 */
+    if (az <= rl) {
+        /* 70 */
+        nw = mlri(z, fnu, kode, n, cy, tol);
+        nz = -1;
+        if (nw == -2) { nz = -2; }
+        return nz;
+    }
+    /* 80 */
+    //
+    // MILLER ALGORITHM NORMALIZED BY THE WRONSKIAN
+    //
+    //
+    // OVERFLOW TEST ON K FUNCTIONS USED IN WRONSKIAN
+    //
+    nw = uoik(z, fnu, kode, 2, 2, cw, tol, elim, alim);
+    if (nw < 0) {
+        nz = nn;
+        /* 90 */
+        for (int i=0; i < nn; i++) { cy[i] = 0.0; }
+        return nz;
+    }
+    /* 100 */
+    if (nw > 0) {
+        return -1;
+    }
+    nw = wrsk(z, fnu, kode, nn, cy, cw, tol, elim, alim);
+    if (nw < 0) {
+        nz = -1;
+        if (nw == -2) {
+            nz = -2;
+        }
+        return nz;
+    }
+    return nz;
+}
+
+
+double complex biry(
+    double complex z,
+    int id,
+    int kode,
+    int *ierr
+) {
+    double complex bi, csq, s1, s2, trm1, trm2, zta, z3;
+    double aa, ad, ak, alim, atrm, az, az3, bb, bk, ck, dig, dk, d1, d2,\
+           elim, fid, fmr, fnu, fnul, rl, r1m5, sfac, tol, zi, zr;
+    int k, k1, k2, nz;
+    double complex cy[2] = { 0.0 };
+    double tth = 2. / 3.;
+    double c1 = 0.614926627446000735150922369;  /* 1/( 3**(1/6) Gamma(2/3)) */
+    double c2 = 0.448288357353826357914823710;  /* 3**(1/6) / Gamma(1/3) */
+    double coef = 0.577350269189625764509148780;  /* sqrt( 1 / 3) */
+    double pi = 3.141592653589793238462643383;
+
+    *ierr = 0;
+    nz = 0;
+    if ((id < 0) || (id > 1)) { *ierr= 1; }
+    if ((kode < 1) || (kode > 2)) { *ierr= 1; }
+    if ( *ierr != 0) { return 0.0;}
+    az = cabs(z);
+    tol = d1mach[3];
+    fid = id;
+    if (az <= 1.0) {
+        //
+        // POWER SERIES FOR ABS(Z) <= 1.
+        //
+        s1 = 1.0;
+        s2 = 1.0;
+        if (az < tol) {
+            aa = c1 * (1.0 - fid) + fid * c2;
+            return aa;
+        }
+        aa = az*az;
+        if (aa >= tol/az) {
+            trm1 = 1.0;
+            trm2 = 1.0;
+            atrm = 1.0;
+            z3 = z*z*z;
+            az3 = az * aa;
+            ak = 2.0 + fid;
+            bk = 3.0 - fid - fid;
+            ck = 4.0 - fid;
+            dk = 3.0 + fid + fid;
+            d1 = ak * dk;
+            d2 = bk * ck;
+            ad = fmin(d1,d2);
+            ak = 24.0 + 9.0*fid;
+            bk = 30.0 - 9.0*fid;
+            for (k = 1; k < 26; k++)
+            {
+                trm1 *= z3/d1;
+                s1 += trm1;
+                trm2 *= z3/d2;
+                s2 += trm2;
+                atrm *= az3 / ad;
+                d1 += ak;
+                d2 += bk;
+                ad = fmin(d1, d2);
+                if (atrm < tol*ad) { break; }
+                ak += 18.0;
+                bk += 18.0;
+            }
+        }
+        if (id != 1) {
+            bi = s1*c1 + z*s2*c2;
+            if (kode == 1) { return bi; }
+            zta = z*csqrt(z)*tth;
+            aa = -fabs(creal(zta));
+            bi *= exp(aa);
+            return bi;
+        }
+        bi = s2*c2;
+        if (az > tol) { bi += z*z*s1*c1/(1.0 + fid ); }
+        if (kode == 1) { return bi; }
+        zta = z*csqrt(z)*tth;
+        aa = -fabs(creal(zta));
+        bi += exp(aa);
+        return bi;
+    }
+    //
+    // CASE FOR ABS(Z) > 1.0
+    //
+    fnu = (1.0 + fid) / 3.0;
+    //
+    // SET PARAMETERS RELATED TO MACHINE CONSTANTS.
+    // TOL IS THE APPROXIMATE UNIT ROUNDOFF LIMITED TO 1.0E-18.
+    // ELIM IS THE APPROXIMATE EXPONENTIAL OVER- AND UNDERFLOW LIMIT.
+    // EXP(-ELIM) < EXP(-ALIM)=EXP(-ELIM)/TOL    AND
+    // EXP(ELIM) > EXP(ALIM)=EXP(ELIM)*TOL       ARE INTERVALS NEAR
+    // UNDERFLOW AND OVERFLOW LIMITS WHERE SCALED ARITHMETIC IS DONE.
+    // RL IS THE LOWER BOUNDARY OF THE ASYMPTOTIC EXPANSION FOR LARGE Z.
+    // DIG = NUMBER OF BASE 10 DIGITS IN TOL = 10**(-DIG).
+    // FNUL IS THE LOWER BOUNDARY OF THE ASYMPTOTIC SERIES FOR LARGE FNU.
+    //
+    k1 = i1mach[14];
+    k2 = i1mach[15];
+    r1m5 = d1mach[4];
+    k = (abs(k1) > abs(k2) ? abs(k2) : abs(k1) );
+    elim = 2.303 * (k*r1m5 - 3.0);
+    k1 = i1mach[13] - 1;
+    aa = r1m5*k1;
+    dig = (aa > 18.0 ? 18.0 : aa);
+    aa *= 2.303;
+    alim = elim + (-aa > -41.45 ? -aa : -41.45);
+    rl = 1.2*dig + 3.0;
+    fnul = 10.0 + 6.0*(dig - 3.0);
+    // 
+    // TEST FOR RANGE
+    // 
+    aa = 0.5 / tol;
+    bb = d1mach[1] * 0.5;
+    aa = fmin(aa, bb);
+    aa = pow(aa, tth);
+    if (az > aa) { *ierr = 4; nz = 0; return 0.0; }
+    aa = sqrt(aa);
+    if (az > aa) { *ierr = 3; }
+    csq = csqrt(z);
+    zta = z*csq*tth;
+    //
+    // RE(ZTA) <= 0 WHEN RE(Z) < 0, ESPECIALLY WHEN IM(Z) IS SMALL
+    //
+    sfac = 1.0;
+    zi = cimag(z);
+    zr = creal(z);
+    ak = cimag(zta);
+    if (zr < 0.0) {
+        bk = creal(zta);
+        ck = -fabs(bk);
+        zta = CMPLX(ck, ak);
+    }
+    if ((zi == 0.0) && (zr <= 0.0)) { zta = ak*I; }
+    aa = creal(zta);
+    if (kode != 2) {
+        //
+        // OVERFLOW TEST
+        //
+        bb = fabs(aa);
+        if (bb >= alim) {
+            bb += 0.5*log(az);
+            sfac = tol;
+            if (bb > elim) { nz = 0; *ierr = 2; return 0.0; }
+        }
+    }
+    fmr = 0.0;
+    if ((aa < 0.0) || (zr <= 0.0)) {
+        fmr = pi;
+        if (zi < 0.0) { fmr = -pi; }
+        zta = -zta;
+    }
+    //
+    // AA=FACTOR FOR ANALYTIC CONTINUATION OF I(FNU,ZTA)
+    // KODE=2 RETURNS EXP(-ABS(XZTA))*I(FNU,ZTA) FROM CBINU
+    //
+    nz = binu(zta, fnu, kode, 1, cy, rl, fnul, tol, elim, alim);
+    if (nz < 0) {
+        if (nz == -1) {
+            nz = 0;
+            *ierr = 2;
+        } else {
+        nz = 0;
+        *ierr = 5;
+        }
+        return 0.0;
+    }
+    aa = fmr*fnu;
+    z3 = sfac;
+    s1 = cy[0] * CMPLX(cos(aa), sin(aa)) * z3;
+    fnu = (2 - fid) / 3.0;
+    nz = binu(zta, fnu, kode, 2, cy, rl, fnul, tol, elim, alim);
+    cy[0] *= z3;
+    cy[1] *= z3;
+    //
+    // BACKWARD RECUR ONE STEP FOR ORDERS -1/3 OR -2/3
+    //
+    s2 = cy[0] * (fnu+fnu) / zta + cy[1];
+    aa = fmr * (fnu - 1.0);
+    s1 = (s1 + s2*CMPLX(cos(aa), sin(aa)))*coef;
+    if (id != 1) {
+        s1 *= csq;
+        bi = s1 / sfac;
+        return bi;
+    }
+    s1 *= z;
+    bi = s1 / sfac;
+    return bi;
 }
 
 
@@ -881,6 +1199,156 @@ L200:
 }
 
 
+int buni(
+    double complex z,
+    double fnu,
+    int kode,
+    int n,
+    double complex *y,
+    int nui,
+    int *nlast,
+    double fnul,
+    double tol,
+    double elim,
+    double alim
+) {
+    double complex cscl, cscr, rz, st, s1, s2;
+    double ax, ay, dfnu, fnui, gnu, xx, yy, ascle, str, sti, stm;
+    int i, iflag, iform, k, nl, nw, nz;
+    double complex cy[2] = { 0.0 };
+    double bry[3] = { 0.0 };
+
+    nz = 0;
+    xx = creal(z);
+    yy = cimag(z);
+    ax = fabs(xx) + sqrt(3.);
+    ay = fabs(yy);
+    iform = 1;
+    if (ay > ax) { iform = 2; }
+    if (nui == 0) {
+        if (iform != 2) {
+            uni1(z, fnu, kode, n, y, &nw, nlast, fnul, tol, elim, alim);
+        } else {
+            uni2(z, fnu, kode, n, y, &nw, nlast, fnul, tol, elim, alim);
+        }
+        if (nw < 0) {
+            nz = -1;
+            if (nw == -2) { nz = -2; }
+            return nz;
+        }
+        return nw;
+    }
+
+    fnui = nui;
+    dfnu = fnu + (n - 1);
+    gnu = dfnu + fnui;
+    if (iform != 2) {
+        //
+        // ASYMPTOTIC EXPANSION FOR I(FNU,Z) FOR LARGE FNU APPLIED IN
+        // -PI/3 <= ARG(Z) <= PI/3
+        //
+        uni1(z, gnu, kode, 2, cy, &nw, nlast, fnul, tol, elim, alim);
+    } else {
+        uni2(z, gnu, kode, 2, cy, &nw, nlast, fnul, tol, elim, alim);
+    }
+    if (nw >= 0) {
+        if (nw != 0) { *nlast = n; return nz; }
+        ay = cabs(cy[0]);
+        //
+        // SCALE BACKWARD RECURRENCE, BRY(3) IS DEFINED BUT NEVER USED
+        //
+        bry[0] = 1e3*d1mach[0] / tol;
+        bry[1] = tol / 1e3*d1mach[0];
+        bry[2] = bry[1];
+        iflag = 2;
+        ascle = bry[1];
+        ax = 1.0;
+        cscl = ax;
+        if (ay <= bry[0]) {
+            iflag = 1;
+            ascle = bry[0];
+            ax = 1.0 / tol;
+            cscl = ax;
+        } else {
+            if (ay >= bry[1]) {
+                iflag = 3;
+                ascle = bry[2];
+                ax = tol;
+                cscl = ax;
+
+            }
+        }
+        ay = 1.0 / ax;
+        cscr = ay;
+        s1 = cy[1] * cscl;
+        s2 = cy[0] * cscl;
+        rz = 2.0 / z;
+        for (i = 1; i < nui; i++)
+        {
+            st = s2;
+            s2 = (dfnu +fnui)*rz*s2 + s1;
+            s1 = st;
+            fnui -= 1.0;
+            if (iflag < 3) {
+                st = s2 * cscr;
+                str = fabs(creal(st));
+                sti = fabs(cimag(st));
+                stm = fmax(str, sti);
+                if (stm > ascle) {
+                    iflag += 1;
+                    ascle = bry[iflag-1];
+                    s1 *= cscr;
+                    s2 = st;
+                    ax *= tol;
+                    ay = 1.0 / ax;
+                    cscl = ax;
+                    cscr = ay;
+                    s1 *= cscl;
+                    s2 *= cscl;
+                }
+            }
+        }
+        y[n-1] = s2*cscr;
+        if (n == 1) { return nz; }
+        nl = n-1;
+        fnui = nl;
+        k = nl;
+        for (i = 0; i < (nl+1); i++)
+        {
+            st = s2;
+            s2 = (fnu + fnui)*rz*s2 + s1;
+            s1 = st;
+            st = s2 * cscr;
+            y[k-1] = st;
+            fnui -= 1.0;
+            k -= 1;
+            if (iflag < 3) {
+                st = s2 * cscr;
+                str = fabs(creal(st));
+                sti = fabs(cimag(st));
+                stm = fmax(str, sti);
+                if (stm > ascle) {
+                    iflag += 1;
+                    ascle = bry[iflag-1];
+                    s1 *= cscr;
+                    s2 = st;
+                    ax *= tol;
+                    ay = 1.0 / ax;
+                    cscl = ax;
+                    cscr = ay;
+                    s1 *= cscl;
+                    s2 *= cscl;
+                }
+            }
+        }
+        return nz;
+    }
+    nz = -1;
+    if (nw == -2) { nz = -2; }
+    return nz;
+}
+
+
 double gamln(double z) {
     int i1m, mz;
     double fln, fz, rln, s, tlg, trm, tst, t1, wdtol, zdmy, zinc, zm, zmin, zp, zsq;
@@ -1210,6 +1678,107 @@ int kscl(
         y[i] = 0.;
     }
     return nz;
+}
+
+
+void rati(
+    double complex z,
+    double fnu,
+    int n,
+    double complex *cy,
+    double tol
+    ) {
+    double complex cdfnu, pt, p1, p2, rz, t1;
+    double ak, amagz, ap1, ap2, arg, az, dfnu, fdnu, flam, fnup, rap1, rho, test, test1;
+    int i, id, idnu, inu, itime, k, kk, magz;
+    
+    az = cabs(z);
+    inu = (int)fnu;
+    idnu = inu + n - 1;
+    fdnu = idnu;
+    magz = az;
+    amagz = magz + 1;
+    fnup = fmax(amagz, fdnu);
+    id = idnu - magz - 1;
+    itime = 1;
+    k = 1;
+    rz = 2.0 / z;
+    t1 = fnup * rz;
+    p2 = -t1;
+    p1 = 1.0;
+    t1 += rz;
+    if (id > 0) {
+        id = 0;
+    }
+    ap2 = cabs(p2);
+    ap1 = cabs(p1);
+    
+    //
+    // THE OVERFLOW TEST ON K(FNU+I-1,Z) BEFORE THE CALL TO CBKNX
+    // GUARANTEES THAT P2 IS ON SCALE. SCALE TEST1 AND ALL SUBSEQUENT P2
+    // VALUES BY AP1 TO ENSURE THAT AN OVERFLOW DOES NOT OCCUR PREMATURELY.
+    //    
+    arg = (ap2 + ap2) / (ap1 * tol);
+    test1 = sqrt(arg);
+    test = test1;
+    rap1 = 1.0 / ap1;
+    p1 *= rap1;
+    p2 *= rap1;
+    ap2 *= rap1;
+    
+    while (1) {
+        k += 1;
+        ap1 = ap2;
+        pt = p2;
+        p2 = p1 - t1*p2;
+        p1 = pt;
+        t1 += rz;
+        ap2 = cabs(p2);
+        if (ap1 > test) { break; }
+        if (itime != 2) {
+            ak = cabs(t1)*0.5;
+            flam = ak + sqrt(ak*ak - 1.0);
+            rho = fmin(ap2/ap1, flam);
+            test = test1*sqrt(rho / (rho*rho - 1.0));
+            itime = 2;
+        }
+    }
+    kk = k + 1 - id;
+    ak = kk;
+    dfnu = fnu + n - 1;
+    cdfnu = dfnu;
+    t1 = ak;
+    p1 = 1.0 / ap2;
+    p2 = 0.0;
+    
+    for (i = 1; i < (kk+1); i++) {
+        pt = p1;
+        p1 = rz*(cdfnu+t1)*p1 + p2;
+        p2 = pt;
+        t1 -= 1.0;
+    }
+    
+    if (p1 == 0.) {
+        p1 = CMPLX(p1, p1);
+    }
+    
+    cy[n-1] = p2 / p1;
+    if (n == 1) { return; }
+    k = n - 1;
+    ak = k;
+    t1 = ak;
+    cdfnu = fnu*rz;
+    
+    for (i = 2; i < (n+1); i++) {
+        pt = cdfnu + t1*rz*cy[k];
+        if (pt == 0.0) {
+            pt = CMPLX(tol, tol);
+        }
+        cy[k-1] = 1.0 / pt;
+        t1 -= 1.0;
+        k -= 1;
+    }
+    return;
 }
 
 
@@ -1877,6 +2446,210 @@ void uni1(
 }
 
 
+void uni2(
+    double complex z,
+    double fnu,
+    int kode,
+    int n,
+    double complex *y,
+    int *nz,
+    int *nlast,
+    double fnul,
+    double tol,
+    double elim,
+    double alim
+) {
+    double complex ai, arg, asum, bsum, cfn, cid, crsc, cscl, c1, c2, dai, phi, rz,\
+                   s1, s2, zb, zeta1, zeta2, zn, zar;
+    double aarg, ang, aphi, ascle, ay, c2i, c2m, c2r, fn, rs1, yy;
+    int i, iflag, in, inu, j, k, nai, nd, ndai, nn, nuf, idum;
+    double hpi = 1.57079632679489662; /* 0.5 pi */
+    double aic = 1.265512123484645396; /* log(2 sqrt(pi)) */
+    double complex cip[4] = { 1.0, I, -1.0, -I };
+    double complex ci = I;
+    //
+    // COMPUTED VALUES WITH EXPONENTS BETWEEN ALIM AND ELIM IN MAGNITUDE
+    // ARE SCALED TO KEEP INTERMEDIATE ARITHMETIC ON SCALE,
+    // EXP(ALIM) = EXP(ELIM)*TOL
+    //
+    cscl = 1.0 / tol;
+    crsc = tol;
+    double complex csr[3] = { crsc, 1.0, cscl };
+    double complex css[3] = { cscl, 1.0, crsc };
+    double bry[3] = { 1.0+3*d1mach[0]/tol, 0.0, 0.0 };
+    double complex cy[2] = { 0.0 };
+    yy = cimag(z);
+    *nz = 0;
+    nd = 0;
+    *nlast = 0;
+    //
+    // ZN IS IN THE RIGHT HALF PLANE AFTER ROTATION BY CI OR -CI
+    //
+    zn = -z * ci;
+    zb = z;
+    cid = -ci;
+    inu = (int)fnu;
+    ang = hpi * (fnu - inu);
+    c2 = CMPLX(cos(ang), sin(ang));
+    zar = c2;
+    in = inu + n - 1;
+    in = in % 4;
+    c2 = cip[in];
+    if (yy <= 0.0) {
+      zn = conj(-zn);
+      zb = conj(zb);
+      cid = -cid;
+      c2 = conj(c2);
+    }
+    //
+    // CHECK FOR UNDERFLOW AND OVERFLOW ON FIRST MEMBER
+    //
+    fn = fmax(fnu, 1.0);
+    unhj(zn, fn, 0, tol, &phi, &arg, &zeta1, &zeta2, &asum, &bsum);
+    if (kode != 1) {
+        cfn = fnu;
+        s1 = -zeta1 + cfn*(cfn/(zb + zeta2));
+    } else {
+        s1 = -zeta1 + zeta2;
+    }
+    rs1 = creal(s1);
+    if (fabs(rs1) > elim) {
+        if (rs1 > 0.) {
+            *nz = -1;
+            return;
+        }
+        for (i = 0; i < n; i++) {
+            y[i] = 0.0;
+        }
+        return;
+    }
+    
+L10:
+    nn = (nd > 2 ? 2 : nd);
+    i = 1;
+    for (i = 1; i < (nn+1); i++) {
+        fn = fnu + (nd-i);
+        unhj(zn, fn, 0, tol, &phi, &arg, &zeta1, &zeta2, &asum, &bsum);
+        if (kode != 1) {
+            cfn = fnu;
+            ay = fabs(yy);
+            s1 = -zeta1 + cfn*(cfn/(zb + zeta2)) + ay*I;
+        } else {
+            s1 = -zeta1 + zeta2;
+        }
+        //
+        // TEST FOR UNDERFLOW AND OVERFLOW
+        //
+        rs1 = creal(s1);
+        if (fabs(rs1) > elim) { goto L50; }
+        if (i == 1) { iflag = 2; }
+        if (fabs(rs1) >= alim) {
+            //
+            // REFINE TEST AND SCALE
+            //
+            aphi = cabs(phi);
+            aarg = cabs(arg);
+            rs1 += log(aphi) - 0.25*log(aarg) - aic;
+            if (fabs(rs1) > elim) { goto L50; }
+            if (i == 1) { iflag = 1; }
+            if (rs1 >= 0.0){ if (i== 1) { iflag = 3; }}
+        }
+        //
+        // SCALE S1 TO KEEP INTERMEDIATE ARITHMETIC ON SCALE NEAR
+        // EXPONENT EXTREMES
+        //
+        ai = airy(arg, 0, 2, &nai, &idum);
+        dai = airy(arg, 1, 2, &ndai, &idum);
+        s2 = phi * (ai*asum + dai*bsum);
+        c2r = creal(s1);
+        c2i = cimag(s1);
+        c2m = exp(c2r)*CMPLX(cos(c2i), sin(c2i));
+        s2 *= s1;
+        if (iflag == 1) { if (uchk(s1, bry[0], tol)) { goto L50; } }
+        if (yy <= 0.0) { s2 = conj(s2); }
+        j = nd - i + 1;
+        s2 *= c2;
+        cy[i-1] = s2;
+        y[j-1] = s2*csr[iflag-1];
+        c2 *= cid;
+    }
+    if (nd > 2) {
+        rz = 2.0 / z;
+        bry[1] = 1.0 / bry[0];
+        bry[2] = d1mach[1];
+        s1 = cy[0];
+        s2 = cy[1];
+        c1 = csr[iflag-1];
+        ascle = bry[iflag-1];
+        k = nd - 2;
+        fn = k;
+        for (i = 3; i < (nd+1); i++) {
+            c2 = s2;
+            s2 = s1 + (fnu+fn)*rz*s2;
+            s1 = c2;
+            c2 = s2*c1;
+            y[k-1] = c2;
+            k -= 1;
+            fn -= 1.0;
+            if (iflag < 3) {
+                c2r = fabs(creal(c2));
+                c2i = fabs(cimag(c2));
+                c2m = fmax(c2r, c2i);
+                if (c2m > ascle) {
+                    iflag += 1;
+                    ascle = bry[iflag-1];
+                    s1 *= c1;
+                    s2 = c2;
+                    s1 *= css[iflag-1];
+                    s2 *= css[iflag-1];
+                    c1 = csr[iflag-1];
+                }
+            }
+        }
+    }
+    return;
+
+L50:
+    if (rs1 <= 0.0) {
+        //
+        // SET UNDERFLOW AND UPDATE PARAMETERS
+        //
+        y[nd-1] = 0.0;
+        nz += 1;
+        nd -= 1;
+        if (nd == 0) { return; }
+        nuf = uoik(z, fnu, kode, 1, nd, y, tol, elim, alim);
+        if (nuf >= 0) {
+            nd -= nuf;
+            nz += nuf;
+            if (nd == 0) { return; }
+            fn = fnu + nd - 1;
+            if (fn >= fnul) {
+                // The following was commented out in the original F77 code
+                // C      FN = CIDI
+                // C      J = NUF + 1
+                // C      K = MOD(J,4) + 1
+                // C      S1R = CIPR(K)
+                // C      S1I = CIPI(K)
+                // C      IF (FN.LT.0.0D0) S1I = -S1I
+                // C      STR = C2R*S1R - C2I*S1I
+                // C      C2I = C2R*S1I + C2I*S1R                 
+                // C      C2R = STR
+                in = (inu + nd - 1) % 4;
+                c2 = zar*cip[in];
+                if (yy <= 0.0) { c2 = conj(c2); }
+                goto L10;
+            }
+            *nlast = nd;
+            return;
+        }
+    }
+    *nz = -1;
+    return;
+    
+}
+
+
 void unik(
     double complex zr,
     double fnu,
@@ -2097,4 +2870,86 @@ int uoik(
         if (nn == 0) { return nuf; }
     }
     return -1;
+}
+
+
+int wrsk(
+    double complex zr,
+    double fnu,
+    int kode,
+    int n,
+    double complex *y,
+    double complex *cw,
+    double tol,
+    double elim,
+    double alim
+) {
+   double complex cinu, cscl, ct, c1, c2, rct, st;
+   double act, acw, ascle, yy;
+   int i, nw, nz;
+ 
+    //
+    // I(FNU+I-1,Z) BY BACKWARD RECURRENCE FOR RATIOS
+    // Y(I)=I(FNU+I,Z)/I(FNU+I-1,Z) FROM CRATI NORMALIZED BY THE
+    // WRONSKIAN WITH K(FNU,Z) AND K(FNU+1,Z) FROM CBKNU.
+    //
+    nz = 0;
+    nw = bknu(zr, fnu, kode, 2, cw, tol, elim, alim);
+    if (nw != 0) {
+        nz = -1;
+        if (nw == -2) {
+            nz = -2;
+        }
+        return nz;
+    }
+    
+    rati(zr, fnu, 2, y, tol);
+    //
+    // RECUR FORWARD ON I(FNU+1,Z) = R(FNU,Z)*I(FNU,Z),
+    // R(FNU+J-1,Z)=Y(J),  J=1,...,N
+    //
+    cinu = 1.0;
+    if (kode != 1) {
+        yy = cimag(zr);
+        cinu = CMPLX(cos(yy), sin(yy));
+    }
+    //
+    // ON LOW EXPONENT MACHINES THE K FUNCTIONS CAN BE CLOSE TO BOTH THE
+    // UNDER AND OVERFLOW LIMITS AND THE NORMALIZATION MUST BE SCALED TO
+    // PREVENT OVER OR UNDERFLOW.  CUOIK HAS DETERMINED THAT THE RESULT
+    // IS ON SCALE.
+    //
+    acw = cabs(cw[1]);
+    ascle = 1.0 + 3*d1mach[0]/tol;
+    cscl = 1.0;
+    
+    if (acw <= ascle) {
+        cscl = 1.0 / tol;
+    } else {
+        ascle = 1.0 / ascle;
+        if (acw >= ascle) {
+            cscl = tol;
+        }
+    }
+    
+    c1 = cw[0]*cscl;
+    c2 = cw[1]*cscl;
+    st = y[0];
+    //
+    // CINU=CINU*(CONJG(CT)/ABS(CT))*(1.0_dp/ABS(CT) PREVENTS
+    // UNDER- OR OVERFLOW PREMATURELY BY SQUARING ABS(CT)
+    //
+    ct = zr * (c2 + st*c1);
+    act = cabs(ct);
+    rct = 1.0 / act;
+    ct = conj(ct)*rct;
+    cinu *= ct*rct;
+    y[0] = cinu*cscl;
+    if (n == 1) { return nz; }
+    for (i = 2; i < (n+1); i++) {
+        cinu *= st;
+        st = y[i-1];
+        y[i-1] = cinu*cscl;
+    }
+    return nz;
 }

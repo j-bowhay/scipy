@@ -9,19 +9,23 @@ extern "C"
 int acai(double complex, double, int, int, int, double complex *, double, double, double, double);
 double complex airy(double complex, int, int, int *, int *);
 int asyi(double complex, double, int, int, double complex *, double, double, double, double);
+int binu(double complex, double fnu, int, int, double complex *, double, double, double, double, double);
 int bknu(double complex, double, int, int, double complex *, double, double, double);
-double complex airy(double complex,int, int, int *, int *);
+double complex biry(double complex,int, int, int *);
+int buni(double complex, double, int, int, double complex *, int, int *, double, double, double, double);
 double gamln(double);
 int kscl(double complex, double, int, double complex *, double complex, double *, double, double);
 int mlri(double complex, double, int, int, double complex *, double);
+void rati(double complex, double, int, double complex *, double);
 int seri(double complex, double, int, int, double complex *, double, double, double);
 int s1s2(double complex, double complex *, double complex *, double, double, int *);
 int uchk(double complex, double, double);
 void unhj(double complex, double, int, double, double complex *, double complex *, double complex *, double complex *, double complex *, double complex *);
 void uni1(double complex, double, int, int, double complex *, int *, int *, double, double, double, double);
+void uni2(double complex, double, int, int, double complex *, int *, int *, double, double, double, double);
 void unik(double complex, double, int, int, double, int *, double complex *, double complex *, double complex *, double complex *, double complex *);
 int uoik(double complex, double, int, int, int, double complex *, double, double, double);
-
+int wrsk(double complex, double, int, int, double complex *, double complex *, double, double, double);
 
 const double d1mach[5] = {
     2.2250738585072014e-308, /* np.finfo(np.float64).tiny */
