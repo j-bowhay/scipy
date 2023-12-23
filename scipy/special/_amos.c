@@ -98,6 +98,153 @@ L40:
 }
 
 
+int acon(
+    double complex z,
+    double fnu,
+    int kode,
+    int mr,
+    int n,
+    double complex *y,
+    double rl,
+    double fnul,
+    double tol,
+    double elim,
+    double alim
+) {
+    double complex ck, cs, cscl, cscr, csgn, cspn, c1, c2, rz, sc1, sc2, st,\
+                   s1, s2, zn;
+    double arg, ascle, as2, bscle, c1i, c1m, c1r, fmr, sgn, yy;
+    int i, inu, iuf, kflag, nn, nw, nz;
+    double pi = 3.14159265358979324;
+    double complex cy[2] = { 0.0 };
+    double complex css[3] = { 0.0 };
+    double complex csr[3] = { 0.0 };
+    double bry[3] = { 0.0 };
+
+    nz = 0;
+    zn = -z;
+    nn = n;
+    nw = binu(zn, fnu, kode, nn, y, rl, fnul, tol, elim, alim);
+    if (nw >= 0) {
+        //
+        // ANALYTIC CONTINUATION TO THE LEFT HALF PLANE FOR THE K FUNCTION
+        //
+        nn = (n > 2 ? 2 : n);
+        nw = bknu(zn, fnu, kode, nn, cy, tol, elim, alim);
+        if (nw == 0) {
+            s1 = cy[0];
+            fmr = mr;
+            sgn = ( fmr < 0 ? -pi : pi );
+            csgn = sgn*I;
+            if (kode != 1) {
+                yy = -cimag(zn);
+                csgn *= CMPLX(cos(yy), sin(yy));
+            }
+            inu = (int)fnu;
+            arg = (fnu - inu)*sgn;
+            cspn = CMPLX(cos(arg), sin(arg));
+            if (inu % 2 == 1) { cspn = -cspn; }
+            iuf = 0;
+            c1 = s1;
+            c2 = y[0];
+            ascle = 1e3*d1mach[0]/tol;
+            if (kode != 1) {
+                nw = s1s2(zn, &c1, &c2, ascle, alim, &iuf);
+                nz += nw;
+                sc1 = c1;
+            }
+            y[0] = cspn*c1 + csgn*c2;
+            if (n == 1) { return nz; }
+            cspn = -cspn;
+            s2 = cy[1];
+            c1 = s2;
+            c2 = y[1];
+            if (kode != 1) {
+                nw = s1s2(zn, &c1, &c2, ascle, alim, &iuf);
+                nz += nw;
+                sc2 = c1;
+            }
+            y[1] = cspn*c1 + csgn*c2;
+            if (n == 2) { return nz; }
+            cspn = -cspn;
+            rz = 2.0 / zn;
+            ck = (fnu + 1.0)*rz;
+            //
+            // SCALE NEAR EXPONENT EXTREMES DURING RECURRENCE ON K FUNCTIONS
+            //
+            cscl = 1.0 / tol;
+            cscr = tol;
+            css[0] = cscl;
+            css[1] = 1.0;
+            css[2] = cscr;
+            csr[0] = cscr;
+            csr[1] = 1.0;
+            csr[2] = cscl;
+            bry[0] = ascle;
+            bry[1] = 1.0 / ascle;
+            bry[2] = d1mach[1];
+            as2 = cabs(s2);
+            kflag = 2;
+            if (as2 <= bry[0] ) {
+                kflag = 1;
+            } else {
+                if (as2 >= bry[1]) {
+                    kflag = 3;
+                }
+            }
+            bscle = bry[kflag-1];
+            s1 *= css[kflag-1];
+            s2 *= css[kflag-1];
+            cs = csr[kflag-1];
+            for (i = 3; i < (n+1); i++)
+            {
+                st = s2;
+                s2 = ck*s2 + s1;
+                s1 = st;
+                c1 = s2*cs;
+                st = c1;
+                c2 = y[i-1];
+                if (kode != 1) {
+                    if (iuf >= 0) {
+                        nw = s1s2(zn, &c1, &c2, ascle, alim, &iuf);
+                        nz += nw;
+                        sc1 = sc2;
+                        sc2 = c1;
+                        if (iuf == 3){
+                            iuf = -4;
+                            s1 = sc1 * css[kflag-1];
+                            s2 = sc2 * css[kflag-1];
+                            st = sc2;
+                        }
+                    }
+                }
+                y[i-1] = cspn*c1 + csgn*c2;
+                ck += rz;
+                cspn = -cspn;
+                if (kflag < 3) {
+                    c1r = fabs(creal(c1));
+                    c1i = fabs(cimag(c1));
+                    c1m = fmax(c1r, c1i);
+                    if (c1m > bscle) {
+                        kflag += 1;
+                        bscle = bry[kflag-1];
+                        s1 *= cs;
+                        s2 = st;
+                        s1 *= css[kflag-1];
+                        s2 *= css[kflag-1];
+                        cs = csr[kflag-1];
+                    }
+                }
+            }
+            return nz;
+        }
+    }
+    nz = -1;
+    if (nw == -2) { nz = -2; }
+    return nz;
+}   
+
+
 double complex airy(
     double complex z,
     int id,
@@ -464,22 +611,24 @@ int binu(
     //
     // ASYMPTOTIC EXPANSION FOR LARGE Z
     //
-    if (((az >= rl) && ((dfnu <= 1.0))) || ((dfnu > 1.0) && (az+az >= dfnu*dfnu))) {
-        //
-        // MILLER ALGORITHM NORMALIZED BY THE SERIES
-        //
-        nw = asyi(z, fnu, kode, n, cy, rl, tol, elim, alim);
-        if (nw < 0) {
-            nz = -1;
-            if (nw == -2) {
-                nz = -2;
+    if (az >= rl) {
+        if ((dfnu <= 1.0) || ((dfnu > 1.0) && (az+az >= dfnu*dfnu))) {
+            //
+            // MILLER ALGORITHM NORMALIZED BY THE SERIES
+            //
+            nw = asyi(z, fnu, kode, n, cy, rl, tol, elim, alim);
+            if (nw < 0) {
+                nz = -1;
+                if (nw == -2) {
+                    nz = -2;
+                }
+                return nz;
             }
             return nz;
         }
-        return nz;
     }
     /* 40 */
-    if (dfnu <= 1.0) {
+    if ((az < rl) || (az+az >= dfnu*dfnu)) {
         nw = mlri(z, fnu, kode, n, cy, tol);
         if (nw < 0) {
             nz = -1;
@@ -1349,13 +1498,47 @@ int buni(
 }
 
 
+int bunk(
+    double complex z,
+    double fnu,
+    int kode,
+    int mr,
+    int n,
+    double complex *y,
+    double tol,
+    double elim,
+    double alim
+) {
+    double ax, ay;
+    
+    int nz = 0;
+    ax = fabs(creal(z)) * 1.7321;
+    ay = fabs(cimag(z));
+    
+    if (ay <= ax) {
+        //
+        // Asymptotic expansion for K(FNU,Z) for large FNU applied in
+        // -PI/3 <= ARG(Z) <= PI/3
+        //
+        nz = unk1(z, fnu, kode, mr, n, y, tol, elim, alim);
+    } else {
+        //
+        // Asymptotic expansion for H(2, FNU, Z*EXP(M*HPI)) for large FNU
+        // applied in PI/3 < ABS(ARG(Z)) <= PI/2 where M = +I or -I and HPI = PI/2
+        //
+        nz = unk2(z, fnu, kode, mr, n, y, tol, elim, alim);
+    }
+    return nz;
+}
+
+
 double gamln(double z) {
     int i1m, mz;
     double fln, fz, rln, s, tlg, trm, tst, t1, wdtol, zdmy, zinc, zm, zmin, zp, zsq;
-    const double con = 1.83787706640934548;
+    const double con = 1.83787706640934548;  /* LN(2*PI) */
     int nz = 0;
     if (z > 0.0) {
-        if (z <= 101.) {
+        if (z <= 101.0) {
             nz = (int)z;
             fz = z - nz;
             if (fz <= 0.0) {
@@ -1367,12 +1550,12 @@ double gamln(double z) {
         wdtol = fmax(d1mach[3], 1e-18);
         i1m = i1mach[13];
         rln = d1mach[4]*i1m;
-        fln = fmax(fmin(rln, 20.), 3.) - 3.;
+        fln = fmax(fmin(rln, 20.), 3.0) - 3.0;
         zm = 1.8 + 0.3875*fln;
-        mz = zm + 1;
+        mz = ((int)zm) + 1;
         zmin = mz;
         zdmy = z;
-        zinc = 0.;
+        zinc = 0.0;
         if (z < zmin){
             zinc = zmin - nz;
             zdmy = z + zinc;
@@ -1383,30 +1566,27 @@ double gamln(double z) {
         if (zp >= wdtol) {
             zsq = zp*zp;
             tst = t1*wdtol;
-            for (int i = 1; i < 22; i++)
+            for (int i = 2; i < 23; i++)
             {
                 zp *= zsq;
-                trm = dgamln_cf[i]*zp;
-                if (fabs(trm) < tst) {
-                    break;
-                }
+                trm = dgamln_cf[i-1] * zp;
+                if (fabs(trm) < tst) { break; }
                 s += trm;
             }
-            
         }
 
         if (zinc == 0.) {
             tlg = log(z);
-            return z*(tlg-1.) + 0.5*(con-tlg) + s;
+            return z*(tlg-1.0) + 0.5*(con - tlg) + s;
         }
-        zp = 1.;
-        nz = zinc;
+        zp = 1.0;
+        nz = (int)zinc;
         for (int i = 0; i < nz; i++)
         {
             zp *= (z + i);
         }
         tlg = log(zdmy);
-        return zdmy*(tlg-1.) - log(zp) + 0.5*(con-tlg) + s;
+        return zdmy*(tlg-1.0) - log(zp) + 0.5*(con-tlg) + s;
     }
     // Zero or negative argument
     return NAN;
@@ -2646,7 +2826,6 @@ L50:
     }
     *nz = -1;
     return;
-    
 }
 
 
@@ -2738,6 +2917,677 @@ void unik(
     *phi = cwrk[15] * con[1];
     return;
 }
+
+
+int unk1(double complex z,
+    double fnu,
+    int kode,
+    int mr,
+    int n,
+    double complex *y,
+    double tol,
+    double elim,
+    double alim) {
+    double complex cfn, ck, crsc, cs, cscl, csgn, cspn, c1, c2, rz, s1, s2,zr,\
+                   phid, zeta1d, zeta2d, sumd;
+    double ang, aphi, asc, ascle, c2i, c2m, c2r, fmr, fn, fnf, rs1, sgn, x;
+    int i, ib, iflag, ifn, il, inu, iuf, k, kdflg, kflag, kk, m, nw, nz, j,\
+        jc, ipard, initd, ic;
+
+    cscl = 1.0 / tol;
+    crsc = tol;
+    double complex css[3] = {cscl, 1.0, crsc };
+    double complex csr[3] = {crsc, 1.0, cscl };
+    double complex cwrk[3][16] = {{ 0.0 }};
+    double complex phi[2] = { 0.0 };
+    double complex sum[2] = { 0.0 };
+    double complex zeta1[2] = { 0.0 };
+    double complex zeta2[2] = { 0.0 };
+    double complex cy[2] = { 0.0 };
+    double bry[3] = { 1e3*d1mach[0] / tol, tol / 1e3*d1mach[0], d1mach[1]};
+    int init[2] = { 0 };
+    double pi = 3.14159265358979324;
+
+    kdflg = 1;
+    nz = 0;
+    x = creal(z);
+    zr = z;
+    if (x < 0.0) { zr = -z; }
+    j = 2;
+    for (i = 1; i < (n+1); i++)
+    {
+        j = 3 - j; /* j flip flops between 1, 2 */
+        jc = j - 1; /* dummy index for 0-indexing */
+        fn = fnu + (i - 1);
+        unik(zr, fn, 2, 0, tol, &init[j-1], &phi[jc], &zeta1[jc], &zeta2[jc], &sum[jc], cwrk[jc]);
+        if (kode != 1) {
+            cfn = fn;
+            s1 = zeta1[jc] - cfn*(cfn / (zr + zeta2[jc]));
+        } else {
+            s1 = zeta1[jc] - zeta2[jc];
+        }
+        //
+        // TEST FOR UNDERFLOW AND OVERFLOW
+        //
+        rs1 = creal(s1);
+        if (fabs(rs1) <= elim) {
+            if (kdflg == 1) { kflag = 2; }
+            if (fabs(rs1) >= alim) {
+                //
+                // REFINE TEST AND SCALE
+                //
+                aphi = cabs(phi[jc]);
+                rs1 += log(aphi);
+                if (fabs(rs1) > elim) { goto L10;}
+                if (kdflg == 1) { kflag = 1; }
+                if (rs1 >= 0.0) { if (kdflg == 1) { kflag = 3; } }
+            }
+
+            //
+            // SCALE S1 TO KEEP INTERMEDIATE ARITHMETIC ON SCALE NEAR
+            // EXPONENT EXTREMES
+            //
+            s2 = phi[jc]*sum[jc];
+            c2r = creal(s1);
+            c2i = cimag(s1);
+            c2m = exp(c2r)*creal(css[kflag-1]);
+            s1 = c2m * CMPLX(cos(c2i), sin(c2i));
+            s2 *= s1;
+            if (kflag == 1) { if (uchk(s2, bry[0], tol)) { goto L10; }}
+            cy[kdflg-1] = s2;
+            y[i-1] = s2*csr[kflag-1];
+            if (kdflg == 2) { goto L30; }
+            kdflg = 2;
+            continue;
+        }
+L10:
+        if (rs1 > 0.0 ) { return -1; }
+        if (x < 0.0) { return -1; }
+        kdflg = 1;
+        y[i-1] = 0.0;
+        nz += 1;
+        if (i != 1) {
+            if (y[i-2] != 0.0) {
+                y[i-2] = 0.0;
+                nz += 1;
+            }
+        }
+    }
+    i = n;
+
+L30:
+    rz = 2.0 / zr;
+    ck = fn * rz;
+    ib = i + 1;
+    if (n >= ib) {
+        //
+        // TEST LAST MEMBER FOR UNDERFLOW AND OVERFLOW, SET SEQUENCE TO ZERO
+        // ON UNDERFLOW
+        //
+        fn = fnu + (n-1);
+        ipard = 1;
+        if (mr != 0) { ipard = 0; }
+        initd = 0;
+        unik(zr, fn, 2, ipard, tol, &initd, &phid, &zeta1d, &zeta2d, &sumd, cwrk[2]);
+        if (kode != 1) {
+            cfn = fn;
+            s1 = zeta1d - cfn*(cfn / (zr + zeta2d));
+        } else {
+            s1 = zeta1d - zeta2d;
+        }
+        rs1 = creal(s1);
+        if (fabs(rs1) <= elim) {
+            if (fabs(rs1) < alim) { goto L50; }
+            //
+            // REFINE ESTIMATE AND TEST
+            //
+            aphi = cabs(phid);
+            rs1 += log(aphi);
+            if (fabs(rs1) < elim) { goto L50; }
+        }
+        if (rs1 > 0.0) { return -1; }
+        //
+        // FOR X < 0.0, THE I FUNCTION TO BE ADDED WILL OVERFLOW
+        //
+        if (x < 0.0) { return -1; }
+        nz = n;
+        for (i = 0; i < (n+1); i++) { y[i] = 0.0; }
+        return nz;
+L50:
+        //
+        // RECUR FORWARD FOR REMAINDER OF THE SEQUENCE
+        //
+        s1 = cy[0];
+        s2 = cy[1];
+        c1 = csr[kflag-1];
+        ascle = bry[kflag-1];
+        for (i = ib; i < (n+1); i++)
+        {
+            c2 = s2;
+            s2 = ck*s2 + s1;
+            s1 = c2;
+            ck += rz;
+            c2 = s2*c1;
+            y[i-1] = c2;
+            if (kflag < 3) {
+                c2m = fmax(fabs(creal(c2)), fabs(cimag(c2)));
+                if (c2m > ascle) {
+                    kflag += 1;
+                    ascle = bry[kflag-1];
+                    s1 *= c1;
+                    s2 = c2;
+                    s1 *= css[kflag-1];
+                    s2 *= css[kflag-1];
+                    c1 = csr[kflag-1];
+                }
+            }
+        }
+    }
+    if (mr == 0) { return nz; }
+    //
+    // ANALYTIC CONTINUATION FOR RE(Z) < 0.0
+    //
+    nz = 0;
+    fmr = mr;
+    sgn = (fmr < 0.0 ? pi : -pi );
+    //
+    // CSPN AND CSGN ARE COEFF OF K AND I FUNCIONS RESP.
+    //
+    csgn = sgn*I;
+    inu = (int)fnu;
+    fnf = fnu - inu;
+    ifn = inu + n - 1;
+    ang = fnf * sgn;
+    cspn = CMPLX(cos(ang), sin(ang));
+    if (ifn % 2 == 1) { cspn = -cspn; }
+    asc = bry[0];
+    kk = n;
+    iuf = 0;
+    kdflg = 1;
+    ib -= 1;
+    ic = ib - 1;
+    k = 1;
+    for (k = 1; k < (n+1); k++)
+    {
+        fn = fnu + (kk-1);
+        //
+        // LOGIC TO SORT OUT CASES WHOSE PARAMETERS WERE SET FOR THE K
+        // FUNCTION ABOVE
+        //
+        m = 3;
+        if (n > 2) { goto L80; }
+L70:
+        initd = init[j-1];
+        phid = phi[j -1];
+        zeta1d = zeta1[j-1];
+        zeta2d = zeta2[j-1];
+        sumd = sum[j-1];
+        m = j;
+        j = 3 - j;
+        goto L90;
+L80:
+        if (!((kk == n) && (ib < n))) {
+            if ((kk == ib) || (kk == ic)){ goto L70; }
+            initd = 0;
+        }
+L90:
+        unik(zr, fn, 1, 0, tol, &initd, &phid, &zeta1d, &zeta2d, &sumd, cwrk[m-1]);
+        if (kode != 1) {
+            cfn = fn;
+            s1 = -zeta1d + cfn * (cfn/(zr + zeta2d));
+        } else {
+            s1 = -zeta1d + zeta2d;
+        }
+        //
+        // TEST FOR UNDERFLOW AND OVERFLOW
+        //
+        rs1 = creal(s1);
+        if (fabs(rs1) > elim) { goto L110; }
+        if (kdflg == 1) { iflag = 2; }
+        if (fabs(rs1) >= alim) {
+            //
+            // REFINE TEST AND SCALE
+            //
+            aphi = cabs(phid);
+            rs1 += log(aphi);
+            if (fabs(rs1) > elim) { goto L110; }
+            if (kdflg == 1) { iflag = 1; }
+            if (rs1 >= 0.0) { if (kdflg == 1) { iflag = 3; } }
+        }
+
+        s2 = csgn * phid * sumd;
+        c2r = creal(s1);
+        c2i = cimag(s1);
+        c2m = exp(c2r) * creal(css[iflag-1]);
+        s1 = c2m * CMPLX(cos(c2i), sin(c2i));
+        s2 = s2 * s1;
+        if (iflag == 1) { if (uchk(s2, bry[0], tol)) { s2 = 0.0; } }
+L100:
+        cy[kdflg -1] = s2;
+        c2 = s2;
+        s2 *= csr[iflag-1];
+        //
+        // ADD I AND K FUNCTIONS, K SEQUENCE IN Y(I), I=1,N
+        //
+        s1 = y[kk-1];
+        if (kode != 1) {
+            nw = s1s2(zr, &s1, &s2, asc, alim, &iuf);
+            nz += nw;
+        }
+        y[kk-1] = s1*cspn + s2;
+        kk -= 1;
+        cspn = -cspn;
+        if (c2 == 0.0) {
+            kdflg = 1;
+            continue;
+        }
+        if (kdflg == 2) { goto L130; }
+        kdflg = 2;
+        continue;
+L110:
+        if (rs1 > 0.0) { return -1; }
+        s2 = 0.0;
+        goto L100;
+    }
+    k = n;
+
+L130:
+    il = n-k;
+    if (il == 0) { return nz; };
+    s1 = cy[0];
+    s2 = cy[1];
+    cs = csr[iflag-1];
+    ascle = bry[iflag-1];
+    fn = inu + il;
+    for (i = 1; i < (il+1); i++)
+    {
+        c2 = s2;
+        s2 = s1 + (fn + fnf) * rz * s2;
+        s1 = c2;
+        fn -= 1.0;
+        c2 = s2 * cs;
+        ck = c2;
+        c1 = y[kk-1];
+        if (kode != 1) {
+            nw = s1s2(zr, &c1, &c2, asc, alim, &iuf);
+            nz = nz + nw;
+        }
+        y[kk-1] = c1 * cspn + c2;
+        kk -= 1;
+        cspn = -cspn;
+        if (iflag < 3) {
+            c2m = fmax(fabs(creal(c2)), fabs(cimag(c2)));
+            if (c2m > ascle) {
+                iflag += 1;
+                ascle = bry[iflag-1];
+                s1 *= cs;
+                s2 = ck;
+                s1 *= css[iflag-1];
+                s2 *= css[iflag-1];
+                cs = csr[iflag-1];
+            }
+        }
+    }
+    return nz;
+};
+
+
+int unk2(double complex z,
+    double fnu,
+    int kode,
+    int mr,
+    int n,
+    double complex *y,
+    double tol,
+    double elim,
+    double alim
+) {
+    double complex ai, cfn, ck, cs, csgn, cspn, c1, c2, dai, rz, s1, s2,\
+                 zb, zn, zr, phid, argd, zeta1d, zeta2d, asumd, bsumd;
+    double aarg, ang, aphi, asc, ascle, car, cpn, c2i, c2m, c2r, crsc, cscl,\
+           fmr, fn, fnf, rs1, sar, sgn, spn, x, yy;
+    int i, ib, iflag, ifn, il, in, inu, iuf, k, kdflg, kflag, kk, nai, ndai,\
+        nw, nz, idum, j, ipard, ic;
+
+    double complex cr1 = CMPLX(1.0, 1.73205080756887729);
+    double complex cr2 = CMPLX(-0.5, -8.66025403784438647e-1);
+    double hpi = 1.57079632679489662;  /* 0.5 pi */
+    double pi = 3.14159265358979324;
+    double aic = 1.26551212348464539;  /* log(2 sqrt(pi)) */
+    double complex cip[4] = {1.0, I, -1.0, -I};
+    cscl = 1.0 / tol;
+    crsc = tol;
+    double complex css[3] = {cscl, 1.0, crsc };
+    double complex csr[3] = {crsc, 1.0, cscl };
+    double complex phi[2] = { 0.0 };
+    double complex arg[2] = { 0.0 };
+    double complex zeta1[2] = { 0.0 };
+    double complex zeta2[2] = { 0.0 };
+    double complex asum[2] = { 0.0 };
+    double complex bsum[2] = { 0.0 };
+    double complex cy[2] = { 0.0 };
+    double bry[3] = { 1e3*d1mach[0] / tol, tol / 1e3*d1mach[0], d1mach[1]};
+
+    kdflg = 1;
+    nz = 0;
+    //
+    // EXP(-ALIM)=EXP(-ELIM)/TOL=APPROX. ONE PRECISION GREATER THAN
+    // THE UNDERFLOW LIMIT
+    //
+    x = creal(z);
+    zr = z;
+    if (x < 0.0) { zr = -z; }
+    yy = cimag(zr);
+    zn = -zr*I;
+    zb = zr;
+    inu = (int)fnu;
+    fnf = fnu - inu;
+    ang = -hpi * fnf;
+    car = cos(ang);
+    sar = sin(ang);
+    cpn = -hpi * car;
+    spn = -hpi * sar;
+    c2 = CMPLX(-spn, cpn);
+    kk = (inu % 4) + 1;
+    cs = cr1 * c2 * cip[kk - 1];
+    if (yy <= 0.0) {
+        zn = conj(-zn);
+        zb = conj(zb);
+    }
+    //
+    // K(FNU,Z) IS COMPUTED FROM H(2,FNU,-I*Z) WHERE Z IS IN THE FIRST
+    // QUADRANT.  FOURTH QUADRANT VALUES (YY <= 0.0_dp) ARE COMPUTED BY
+    // CONJUGATION SINCE THE K FUNCTION IS REAL ON THE POSITIVE REAL AXIS
+    //
+    j = 2;
+    for (i = 1; i < (n+1); i++)
+    {
+        j = 3 - j;
+        fn = fnu + (i-1);
+        unhj(zn, fn, 0, tol, &phi[j-1], &arg[j-1], &zeta1[j-1], &zeta2[j-1], &asum[j-1],&bsum[j-1]);
+        if (kode != 1) {
+            cfn = fn;
+            s1 = zeta1[j-1] - cfn*(cfn/(zb + zeta2[j-1]));
+        } else {
+            s1 = zeta1[j-1] - zeta2[j-1];
+        }
+        //
+        // TEST FOR UNDERFLOW AND OVERFLOW
+        //
+        rs1 = creal(s1);
+        if (fabs(rs1) <= elim) {
+            if (kdflg == 1) { kflag = 2; }
+            if (fabs(rs1) >= alim) {
+                //
+                // REFINE TEST AND SCALE
+                aphi = cabs(phi[j-1]);
+                aarg = cabs(arg[j-1]);
+                rs1 += log(aphi) - 0.25 * log(aarg) - aic;
+                if (fabs(rs1) > elim) { goto L10; }
+                if (kdflg == 1) { kflag = 1; }
+                if (rs1 >= 0.0) { if (kdflg == 1) { kflag = 3; } }
+            }
+            //
+            // SCALE S1 TO KEEP INTERMEDIATE ARITHMETIC ON SCALE NEAR
+            // EXPONENT EXTREMES
+            //
+            c2 = arg[j-1] * cr2;
+            ai = airy(c2, 0, 2, &nai, &idum);
+            dai = airy(c2, 1, 2, &ndai, &idum);
+            s2 = cs * phi[j-1] * (ai*asum[j-1] + cr2*dai*bsum[j-1]);
+            c2r = creal(s1);
+            c2i = cimag(s1);
+            c2m = exp(c2r) * creal(css[kflag-1]);
+            s1 = c2m * CMPLX(cos(c2i), sin(c2i));
+            s2 *= s1;
+            if (kflag == 1) { if (uchk(s2, bry[0], tol)) { goto L10; } };
+            if (yy <= 0.0) { s2 = conj(s2); }
+            cy[kdflg-1] = s2;
+            y[i-1] = s2 * csr[kflag-1];
+            cs *= -I;
+            if (kdflg == 2) { goto L30; }
+            kdflg = 2;
+            continue;
+        }
+L10:
+        if (rs1 > 0.0) { return -1; }
+        //
+        // FOR X < 0.0, THE I FUNCTION TO BE ADDED WILL OVERFLOW
+        //
+        if (x < 0.0) { return -1; }
+        kdflg = 1;
+        y[i-1] = 0.0;
+        cs *= -I;
+        nz += 1;
+        if (i != 1) {
+            if (y[i-2] != 0.0) {
+                y[i-2] = 0.0;
+                nz += 1;
+            }
+        }
+    }
+    i = n;
+L30:
+    rz = 2.0 / zr;
+    ck = fn * rz;
+    ib = i + 1;
+    if (n >= ib) {
+        fn = fnu + (n - 1);
+        ipard = 1;
+        if (mr != 0) { ipard = 0; }
+        unhj(zn, fn, ipard, tol, &phid, &argd, &zeta1d, &zeta2d, &asumd, &bsumd);
+        if (kode != 1) {
+            cfn = fn;
+            s1 = zeta1d - cfn * (cfn / (zb + zeta2d));
+        } else {
+            s1 = zeta1d - zeta2d;
+        }
+        rs1 = creal(s1);
+        if (fabs(rs1) <= elim) {
+            if (fabs(rs1) < alim) { goto L50; }
+            //
+            // REFINE ESTIMATE AND TEST
+            //
+            aphi = cabs(phid);
+            aarg = cabs(argd);
+            rs1 += log(aphi) - 0.25 * log(aarg) - aic;
+            if (fabs(rs1) < elim) { goto L50; }
+        }
+        if (rs1 > 0.0) { return -1; }
+        //
+        //  FOR X < 0.0, THE I FUNCTION TO BE ADDED WILL OVERFLOW
+        //
+        if (x < 0.0) { return -1; }
+        nz = n;
+        for (i = 0; i < n; i++) { y[i] = 0.0; }
+        return nz;
+L50:
+        //
+        // SCALED FORWARD RECURRENCE FOR REMAINDER OF THE SEQUENCE
+        //
+        s1 = cy[0];
+        s2 = cy[1];
+        c1 = csr[kflag-1];
+        ascle = bry[kflag-1];
+        for (i = ib; i < (n+1); i++) 
+        {
+            c2 = s2;
+            s2 = ck * s2 + s1;
+            s1 = c2;
+            ck += rz;
+            c2 = s2 * c1;
+            y[i-1] = c2;
+            if (kflag < 3) {
+                c2m = fmax(fabs(creal(c2)), fabs(cimag(c2)));
+                if (c2m > ascle) {
+                    kflag += 1;
+                    ascle = bry[kflag-1];
+                    s1 *= c1;
+                    s2 = c2;
+                    s1 *= css[kflag-1];
+                    s2 *= css[kflag-1];
+                    c1 = csr[kflag-1];
+                }
+            }
+        }
+    }
+    if (mr == 0) { return nz; }
+    //
+    // ANALYTIC CONTINUATION FOR RE(Z) < 0.0_dp
+    //
+    nz = 0;
+    fmr = mr;
+    sgn = ( fmr < 0.0 ? -pi : pi);
+    //
+    // CSPN AND CSGN ARE COEFF OF K AND I FUNCTIONS RESP.
+    //
+    csgn = sgn*I;
+    if (yy <= 0.0) { csgn = -csgn; }
+    ifn = inu + n - 1;
+    ang = fnf*sgn;
+    cspn = CMPLX(cos(ang), sin(ang));
+    if (ifn % 2 == 1) { cspn = -cspn; }
+    //
+    // CS=COEFF OF THE J FUNCTION TO GET THE I FUNCTION.  I(FNU,Z) IS
+    // COMPUTED FROM EXP(I*FNU*HPI)*J(FNU,-I*Z) WHERE Z IS IN THE FIRST
+    // QUADRANT.  FOURTH QUADRANT VALUES (YY <= 0.0_dp) ARE COMPUTED BY
+    // CONJUGATION SINCE THE I FUNCTION IS REAL ON THE POSITIVE REAL AXIS
+    //
+    cs = CMPLX(car, -sar) * csgn;
+    in = (ifn % 4) + 1;
+    c2 = cip[in-1];
+    cs *= conj(c2);
+    asc = bry[0];
+    kk = n;
+    kdflg = 1;
+    ib -= 1;
+    ic = ib - 1;
+    iuf = 0;
+    for (k = 1; k <= (n+1); k++) {
+        fn = fnu + (kk-1);
+        if (n > 2) { goto L80; }
+L70:
+        phid = phi[j-1];
+        argd = arg[j-1];
+        zeta1d = zeta1[j-1];
+        zeta2d = zeta2[j-1];
+        asumd = asum[j-1];
+        bsumd = bsum[j-1];
+        j = 3 - j;
+        goto L90;
+L80:
+        if (!((kk == n) && (ib < n))) {
+            if ((kk == ib) || (kk == ic)) { goto L70; }
+            unhj(zn, fn, 0, tol, &phid, &argd, &zeta1d, &zeta2d, &asumd, &bsumd);
+        }
+L90:
+        if (kode != 1) {
+            cfn = fn;
+            s1 = -zeta1d + cfn * (cfn/(zb + zeta2d));
+        } else {
+            s1 = -zeta1d + zeta2d;
+        }
+        //
+        // TEST FOR UNDERFLOW AND OVERFLOW
+        //
+        rs1 = creal(s1);
+        if (fabs(rs1) > elim) { goto L110; }
+        if (kdflg == 1) { iflag = 2; }
+        if (fabs(rs1) >= alim) {
+            aphi = cabs(phid);
+            aarg = cabs(argd);
+            rs1 += log(aphi) - 0.25f * log(aarg) - aic;
+            if (fabs(rs1) > elim) { goto L110; }
+            if (kdflg == 1) { iflag = 1; }
+            if (rs1 >= 0.0) { if (kdflg == 1) {iflag = 3;} }
+        }
+
+        ai = airy(argd, 0, 2, &nai, &idum);
+        dai = airy(argd, 1, 2, &ndai, &idum);
+        s2 = cs * phid * (ai*asumd + dai*bsumd);
+        c2r = creal(s1);
+        c2i = cimag(s1);
+        c2m = exp(c2r) * creal(css[iflag-1]);
+        s1 = c2m * CMPLX(cos(c2i), sin(c2i));
+        s2 *= s1;
+        if (iflag == 1) { if (uchk(s2, bry[0], tol)) { s2 = 0.0; } }
+
+L100:
+        if (yy <= 0.0) { s2 = conj(s2); }
+        cy[kdflg-1] = s2;
+        c2 = s2;
+        s2 *= csr[iflag-1];
+        //
+        // ADD I AND K FUNCTIONS, K SEQUENCE IN Y(I), I=1,N
+        //
+        s1 = y[kk-1];
+        if (kode != 1) {
+            nw = s1s2(zr, &s1, &s2, asc, alim, &iuf);
+            nz += nw;
+        }
+        y[kk-1] = s1 * cspn + s2;
+        kk -= 1;
+        cspn = -cspn;
+        cs *= -I;
+        if (c2 == 0.0) {
+            kdflg = 1;
+            continue;
+        }
+        if (kdflg == 2) { goto L130; }
+        kdflg = 2;
+        continue;
+
+L110:
+        if (rs1 > 0.0) { return -1; }
+        s2 = 0.0;
+        goto L100;
+
+    }
+    k = n;
+
+L130:
+    il = n - k;
+    if (il == 0) { return nz; }
+    //
+    // RECUR BACKWARD FOR REMAINDER OF I SEQUENCE AND ADD IN THE
+    // K FUNCTIONS, SCALING THE I SEQUENCE DURING RECURRENCE TO KEEP
+    // INTERMEDIATE ARITHMETIC ON SCALE NEAR EXPONENT EXTREMES.
+    //
+    s1 = cy[0];
+    s2 = cy[1];
+    cs = csr[iflag-1];
+    ascle = bry[iflag-1];
+    fn = inu + il;
+    for (i = 1; i < (il+1); i++) {
+        c2 = s2;
+        s2 = s1 + (fn + fnf) * rz * s2;
+        s1 = c2;
+        fn -= 1.0;
+        c2 = s2 * cs;
+        ck = c2;
+        c1 = y[kk-1];
+        if (kode != 1) {
+            nw = s1s2(zr, &c1, &c2, asc, alim, &iuf);
+            nz = nz + nw;
+        }
+        y[kk-1] = c1 * cspn + c2;
+        kk -= 1;
+        cspn = -cspn;
+        if (iflag < 3) {
+            c2m = fmax(fabs(creal(ck)), fabs(cimag(ck)));
+            if (c2m > ascle) {
+                iflag += 1;
+                ascle = bry[iflag-1];
+                s1 *= cs;
+                s2 = ck;
+                s1 *= css[iflag-1];
+                s2 *= css[iflag-1];
+                cs = csr[iflag-1];
+            }
+        }
+    }
+    return nz;
+};
 
 
 int uoik(
