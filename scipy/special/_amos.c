@@ -565,7 +565,7 @@ int asyi(
         ib = 3;
         for (int i = ib; i < (nn+1); i++)
         {
-            y[i-1] = (ak + fnu)*rz*y[k] + y[k+1];
+            y[k-1] = (ak + fnu)*rz*y[k] + y[k+1];
             ak -= 1.;
             k -=1;
         }
@@ -627,7 +627,7 @@ int besh(
     aa = r1m5*k1;
     dig = (aa > 18.0 ? 18.0 : aa);
     aa *= 2.303;
-    alim = elim + (-aa > -41.45 ? -aa : -41.45);
+    alim = elim + fmax(-aa, -41.45);
     fnul = 10.0 + 6.0 * (dig - 3.0);
     rl = 1.2*dig + 3.0;
     fn = fnu + (nn - 1);
@@ -736,7 +736,7 @@ L20:
                     }
                     zn *= csgn;
                     cy[i-1] = zn * atol;
-                    csgn = zt;
+                    csgn *= zt;
                 }
                 return nz;
 L40:
