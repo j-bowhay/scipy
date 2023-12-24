@@ -111,8 +111,8 @@ int acon(
     double elim,
     double alim
 ) {
-    double complex ck, cs, cscl, cscr, csgn, cspn, c1, c2, rz, sc1, sc2, st,\
-                   s1, s2, zn;
+    double complex ck, cs, cscl, cscr, csgn, cspn, c1, c2, rz, sc1, sc2 = 0.0,\
+                   st, s1, s2, zn;
     double arg, ascle, as2, bscle, c1i, c1m, c1r, fmr, sgn, yy;
     int i, inu, iuf, kflag, nn, nw, nz;
     double pi = 3.14159265358979324;
@@ -1543,7 +1543,7 @@ int bknu(
     double aa, ak, ascle, a1, a2, bb, bk, caz, dnu, dnu2, etest, fc, fhs,\
            fk, fks, g1, g2, p2i, p2m, p2r, rk, s, tm, t1, t2, xx, yy,\
            elm, xd, yd, alas, as;
-    int i, iflag, inu, k, kflag, kk, koded, j, ic, inub;
+    int iflag, inu, k, kflag, kk, koded, j, ic, inub, i = 1;
     double complex cy[2];
 
     int kmax =30;
@@ -1574,8 +1574,12 @@ int bknu(
     rz = 2. / z;
     inu = (int)(fnu + 0.5);
     dnu = fnu - inu;
+    // Definitions for silencing initialization warnings.
+    s1 = 0.0;
+    s2 = 0.0;
+    ck = 0.0;
+    dnu2 = 0.0;
     if (fabs(dnu) != 0.5) {
-        dnu2 = 0.0;
         if (fabs(dnu) > tol) { dnu2 = dnu * dnu; }
         if (caz <= r1) {
             //
@@ -1745,7 +1749,7 @@ L50:
         rk = caz + caz + 2.0;
         a1 = 0.0;
         a2 = 1.0;
-        for (int i = 1; i < (kmax+1); i++)
+        for (i = 1; i < (kmax+1); i++)
         {
             ak = fhs / fks;
             bk = rk / (fk + 1.0);
@@ -1846,7 +1850,7 @@ L100:
 L110:
     p1 = csr[kflag-1];
     ascle = bry[kflag-1];
-    for (int i = inub; i < inu+1; i++)
+    for (i = inub; i < inu+1; i++)
     {
         st = s2;
         s2 = ck*s2 + s1;
@@ -1879,7 +1883,7 @@ L140:
     if (kk > n) { return nz; }
     p1 = csr[kflag-1];
     ascle = bry[kflag-1];
-    for (int i = kk; i < (n+1); i++)
+    for (i = kk; i < (n+1); i++)
     {
         p2 = s2;
         s2 = ck*s2 + s1;
@@ -1912,7 +1916,7 @@ L160:
     yd = yy;
     ic = -1;
     j = 2;
-    for (int i = 1; i < (inu+1); i++)
+    for (i = 1; i < (inu+1); i++)
     {
         st = s2;
         s2 = ck*s2 + s1;
@@ -2401,10 +2405,10 @@ int kscl(
     double complex s1, s2, cs, ck, zd;
     int nz = 0;
     int ic = 0;
-    int nn = (3 <= n+1? 3 : n + 1);
+    int nn = ( n > 2 ? 2 : n );
     int kk = 0;
     double elm = exp(-elim);
-
+    xx = creal(zr);
     for (int i = 0; i < nn; i++)
     {
         s1 = y[i];
@@ -3007,7 +3011,7 @@ void unhj(
                 kp1 += 1;
                 l += 1;
                 za = zunhj_c[l-1];
-                for (int j = 2; j < (kp1+1); j++)
+                for (j = 2; j < (kp1+1); j++)
                 {
                     l += 1;
                     za = za*t2 + zunhj_c[l-1];
@@ -3022,7 +3026,7 @@ void unhj(
             if (ias != 1) {
                 suma = up[lr];
                 ju = lrp1;
-                for (int jr = 1; j < lrp1; j++)
+                for (int jr = 1; jr < lrp1; jr++)
                 {
                     ju -= 1;
                     suma += cr[jr-1] * up[ju-1];
@@ -3036,7 +3040,7 @@ void unhj(
             if (ibs != 1) {
                 sumb = up[lr+1] + up[lr]*zc;
                 ju = lrp1;
-                for (int jr = 1; j < lrp1; j++)
+                for (int jr = 1; jr < lrp1; jr++)
                 {
                     ju -= 1;
                     sumb += dr[jr-1] * up[ju-1];
@@ -3069,7 +3073,8 @@ void uni1(
     double elim,
     double alim
 ) {
-    double complex cfn, crsc, cscl, c1, c2, phi, rz, sum, s1, s2, zeta1, zeta2;
+    double complex cfn, crsc, cscl, c1, c2, phi, rz, sum, s1, s2,\
+                   zeta1 = 0.0, zeta2 = 0.0;
     double aphi, ascle, c2i, c2m, c2r, fn, rs1, yy;
     int iflag, init, k, m, nd, nn, resetfor = 0;
     double complex cwrk[16] = { 0. };
@@ -3087,7 +3092,7 @@ void uni1(
     unik(z, fn, 1, 1, tol, &init, &phi, &zeta1, &zeta2, &sum, &cwrk[0]);
     if (kode != 1) {
         cfn = fn;
-        s1 = -zeta1 + cfn * (cfn/(z+zeta2));
+        s1 = -zeta1 + cfn * (cfn/(z + zeta2));
     } else {
         s1 = zeta2 - zeta1;
     }
@@ -3560,10 +3565,10 @@ int unk1(double complex z,
     double tol,
     double elim,
     double alim) {
-    double complex cfn, ck, crsc, cs, cscl, csgn, cspn, c1, c2, rz, s1, s2,zr,\
-                   phid, zeta1d, zeta2d, sumd;
+    double complex cfn, ck, crsc, cs, cscl, csgn, cspn, c1, c2, rz, s1, s2, zr,\
+                   phid, zeta1d = 0.0, zeta2d = 0.0, sumd;
     double ang, aphi, asc, ascle, c2i, c2m, c2r, fmr, fn, fnf, rs1, sgn, x;
-    int i, ib, iflag, ifn, il, inu, iuf, k, kdflg, kflag, kk, m, nw, nz, j,\
+    int i, ib, iflag = 0, ifn, il, inu, iuf, k, kdflg, kflag, kk, m, nw, nz, j,\
         jc, ipard, initd, ic;
 
     cscl = 1.0 / tol;
@@ -3878,7 +3883,7 @@ int unk2(double complex z,
                  zb, zn, zr, phid, argd, zeta1d, zeta2d, asumd, bsumd;
     double aarg, ang, aphi, asc, ascle, car, cpn, c2i, c2m, c2r, crsc, cscl,\
            fmr, fn, fnf, rs1, sar, sgn, spn, x, yy;
-    int i, ib, iflag, ifn, il, in, inu, iuf, k, kdflg, kflag, kk, nai, ndai,\
+    int i, ib, iflag = 0, ifn, il, in, inu, iuf, k, kdflg, kflag, kk, nai, ndai,\
         nw, nz, idum, j, ipard, ic;
 
     double complex cr1 = CMPLX(1.0, 1.73205080756887729);
