@@ -10,6 +10,11 @@ int acai(double complex, double, int, int, int, double complex *, double, double
 int acon(double complex, double, int, int, int, double complex *, double, double, double, double, double);
 double complex airy(double complex, int, int, int *, int *);
 int asyi(double complex, double, int, int, double complex *, double, double, double, double);
+int besh(double complex, double, int, int, int, double complex *, int *);
+int besi(double complex, double, int, int, double complex *, int *);
+int besj(double complex, double, int, int, double complex *, int *);
+int besk(double complex, double, int, int, double complex *, int *);
+int besy(double complex, double, int, int, double complex *, int *);
 int binu(double complex, double fnu, int, int, double complex *, double, double, double, double, double);
 int bknu(double complex, double, int, int, double complex *, double, double, double);
 double complex biry(double complex,int, int, int *);

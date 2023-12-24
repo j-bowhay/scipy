@@ -577,6 +577,638 @@ int asyi(
 }
 
 
+int besh(
+    double complex z,
+    double fnu,
+    int kode,
+    int m,
+    int n,
+    double complex *cy,
+    int *ierr
+) {
+    double complex zn, zt, csgn;
+    double aa, alim, aln, arg, az, cpn, dig, elim, fmm, fn, fnul,
+        rhpi, rl, r1m5, sgn, spn, tol, ufl, xn, xx, yn, yy,
+        bb, ascle, rtol, atol;
+    int i, inu, inuh, ir, k, k1, k2, mm, mr, nn, nuf, nw, nz;
+
+    double hpi = 1.57079632679489662; /* 0.5 PI */
+
+    nz = 0;
+    xx = creal(z);
+    yy = cimag(z);
+    *ierr = 0;
+
+    if ((xx == 0.0) && (yy == 0.0)) { *ierr = 1; }
+    if (fnu < 0.0) { *ierr = 1; }
+    if ((m < 1) || (m > 2)) { *ierr = 1; }
+    if ((kode < 1) || (kode > 2)) { *ierr = 1; }
+    if (n < 1) { *ierr = 1; }
+    if (*ierr != 0) { return nz; }
+    nn = n;
+    //
+    //  SET PARAMETERS RELATED TO MACHINE CONSTANTS.
+    //  TOL IS THE APPROXIMATE UNIT ROUNDOFF LIMITED TO 1.0E-18.
+    //  ELIM IS THE APPROXIMATE EXPONENTIAL OVER- AND UNDERFLOW LIMIT.
+    //  EXP(-ELIM).LT.EXP(-ALIM)=EXP(-ELIM)/TOL    AND
+    //  EXP(ELIM).GT.EXP(ALIM)=EXP(ELIM)*TOL       ARE INTERVALS NEAR
+    //  UNDERFLOW AND OVERFLOW LIMITS WHERE SCALED ARITHMETIC IS DONE.
+    //  RL IS THE LOWER BOUNDARY OF THE ASYMPTOTIC EXPANSION FOR LARGE Z.
+    //  DIG = NUMBER OF BASE 10 DIGITS IN TOL = 10**(-DIG).
+    //  FNUL IS THE LOWER BOUNDARY OF THE ASYMPTOTIC SERIES FOR LARGE FNU
+    //
+    tol = fmax(d1mach[3], 1e-18);
+    k1 = i1mach[14];
+    k2 = i1mach[15];
+    r1m5 = d1mach[4];
+    k = (abs(k1) > abs(k2) ? abs(k2) : abs(k1) );
+    elim = 2.303 * (k*r1m5 - 3.0);
+    k1 = i1mach[13] - 1;
+    aa = r1m5*k1;
+    dig = (aa > 18.0 ? 18.0 : aa);
+    aa *= 2.303;
+    alim = elim + (-aa > -41.45 ? -aa : -41.45);
+    fnul = 10.0 + 6.0 * (dig - 3.0);
+    rl = 1.2*dig + 3.0;
+    fn = fnu + (nn - 1);
+    mm = 3 - m - m;
+    fmm = mm;
+    zn = z * (-fmm * I);
+    xn = creal(zn);
+    yn = cimag(zn);
+    az = cabs(z);
+
+    //
+    // TEST FOR RANGE
+    //
+    aa = 0.5 / tol;
+    bb = d1mach[1] * 0.5;
+    aa = fmin(aa, bb);
+    if (az <= aa) {
+        if (fn <= aa) {
+            aa = sqrt(aa);
+            if (az > aa) { *ierr = 3; }
+            if (fn > aa) { *ierr = 3; }
+            //
+            // OVERFLOW TEST ON THE LAST MEMBER OF THE SEQUENCE
+            //
+            ufl = d1mach[0] * 1.0e3;
+            if (az >= ufl) {
+                if (fnu <= fnul) {
+                    if (fn > 1.0) {
+                        if (fn <= 2.0) {
+                            if (az > tol) { goto L10; }
+                            arg = 0.5 * az;
+                            aln = -fn * log(arg);
+                            if (aln > elim) { goto L50; }
+                        } else {
+                            nuf = uoik(zn, fnu, kode, 2, nn, cy, tol, elim, alim);
+                            if (nuf < 0) { goto L50; }
+                            nz += nuf;
+                            nn -= nuf;
+                            //
+                            // HERE NN=N OR NN=0 SINCE NUF=0,NN, OR -1 ON RETURN FROM CUOIK
+                            // IF NUF=NN, THEN CY(I)=CZERO FOR ALL I
+                            //
+                            if (nn == 0) goto L40;
+                        }
+                    }
+L10:
+                    if (!((xn < 0.0) || ((xn == 0.0) && (yn < 0.0) && (m == 2)))) {
+                        //
+                        // RIGHT HALF PLANE COMPUTATION, XN >= 0.  .AND.  (XN.NE.0.  .OR.
+                        // YN >= 0.  .OR.  M=1)
+                        //
+                        nz = bknu(zn, fnu, kode, nn, cy, tol, elim, alim);
+                        goto L20;
+                    }
+                    //
+                    // LEFT HALF PLANE COMPUTATION
+                    //
+                    mr = -mm;
+                    nw = acon(zn, fnu, kode, mr, nn, cy, rl, fnul, tol, elim, alim);
+                    if (nw < 0) { goto L60; }
+                    nz = nw;
+                } else {
+                    //
+                    // UNIFORM ASYMPTOTIC EXPANSIONS FOR FNU > FNUL
+                    //
+                    mr = 0;
+                    if ((xn < 0.0) || ((xn == 0.0) && (yn < 0.0) && (m == 2))) {
+                        mr = -mm;
+                        if ((xn == 0.0) && (yn < 0.0)) { zn = -zn; }
+                    }
+                    nw = bunk(zn, fnu, kode, mr, nn, cy, tol, elim, alim);
+                    if (nw < 0) { goto L60; }
+                    nz += nw;
+                }
+                //
+                // H(M,FNU,Z) = -FMM*(I/HPI)*(ZT**FNU)*K(FNU,-Z*ZT)
+                //
+                // ZT=EXP(-FMM*HPI*I) = CMPLX(0.0,-FMM), FMM=3-2*M, M=1,2
+                //
+L20:
+                sgn = copysign(hpi, -fmm);
+                //
+                // CALCULATE EXP(FNU*HPI*I) TO MINIMIZE LOSSES OF SIGNIFICANCE
+                // WHEN FNU IS LARGE
+                //
+                inu = (int)fnu;
+                inuh = inu / 2;
+                ir = inu - 2 * inuh;
+                arg = (fnu - (inu - ir)) * sgn;
+                rhpi = 1.0 / sgn;
+                cpn = rhpi * cos(arg);
+                spn = rhpi * sin(arg);
+                csgn = CMPLX(-spn, cpn);
+                if (inuh % 2 == 1) { csgn = -csgn; }
+                zt = -fmm*I;
+                rtol = 1.0 / tol;
+                ascle = ufl * rtol;
+                for (i = 1; i < (nn+1); i++) {
+                    zn = cy[i-1];
+                    aa = creal(zn);
+                    bb = cimag(zn);
+                    atol = 1.0;
+                    if (fmax(fabs(aa), fabs(bb)) <= ascle) {
+                        zn *= rtol;
+                        atol = tol;
+                    }
+                    zn *= csgn;
+                    cy[i-1] = zn * atol;
+                    csgn = zt;
+                }
+                return nz;
+L40:
+                if (xn >= 0.0) return nz;
+            }
+L50:
+            *ierr = 2;
+            return 0;
+L60:
+            if (nw == -1) goto L50;
+            *ierr = 5;
+            return 0;
+        }
+    }
+    *ierr = 4;
+    return 0;
+}
+
+
+int besi(
+    double complex z,
+    double fnu,
+    int kode,
+    int n,
+    double complex *cy,
+    int *ierr
+) {
+    double complex csgn, zn;
+    double aa, alim, arg, dig, elim, fnul, rl, r1m5, s1, s2, tol, xx, yy, az,\
+           fn, bb, ascle, rtol, atol;
+    int i, inu, k, k1, k2, nn, nz;
+    double pi = 3.14159265358979324;
+
+    *ierr = 0;
+    nz = 0;
+    if (fnu < 0.0) { *ierr = 1; }
+    if ((kode < 1) || (kode > 2)) { *ierr = 1; }
+    if (n < 1) { *ierr = 1; }
+    if (*ierr != 0) { return nz; }
+    xx = creal(z);
+    yy = cimag(z);
+    //
+    //  SET PARAMETERS RELATED TO MACHINE CONSTANTS.
+    //  TOL IS THE APPROXIMATE UNIT ROUNDOFF LIMITED TO 1.0E-18.
+    //  ELIM IS THE APPROXIMATE EXPONENTIAL OVER- AND UNDERFLOW LIMIT.
+    //  EXP(-ELIM).LT.EXP(-ALIM)=EXP(-ELIM)/TOL    AND
+    //  EXP(ELIM).GT.EXP(ALIM)=EXP(ELIM)*TOL       ARE INTERVALS NEAR
+    //  UNDERFLOW AND OVERFLOW LIMITS WHERE SCALED ARITHMETIC IS DONE.
+    //  RL IS THE LOWER BOUNDARY OF THE ASYMPTOTIC EXPANSION FOR LARGE Z.
+    //  DIG = NUMBER OF BASE 10 DIGITS IN TOL = 10**(-DIG).
+    //  FNUL IS THE LOWER BOUNDARY OF THE ASYMPTOTIC SERIES FOR LARGE FNU
+    //
+    tol = fmax(d1mach[3], 1e-18);
+    k1 = i1mach[14];
+    k2 = i1mach[15];
+    r1m5 = d1mach[4];
+    k = (abs(k1) > abs(k2) ? abs(k2) : abs(k1) );
+    elim = 2.303 * (k*r1m5 - 3.0);
+    k1 = i1mach[13] - 1;
+    aa = r1m5*k1;
+    dig = (aa > 18.0 ? 18.0 : aa);
+    aa *= 2.303;
+    alim = elim + (-aa > -41.45 ? -aa : -41.45);
+    rl = 1.2 * dig + 3.0;
+    fnul = 10.0 + 6.0 * (dig - 3.0);
+    az = cabs(z);
+    //
+    // TEST FOR RANGE
+    // 
+    aa = 0.5 / tol;
+    bb = d1mach[1]*0.5;
+    aa = fmin(aa, bb);
+    if (az <= aa) {
+        fn = fnu + (n - 1);
+        if (fn <= aa) {
+            aa = sqrt(aa);
+            if (az > aa) { *ierr = 3; }
+            if (fn > aa) { *ierr = 3; }
+            zn = z;
+            csgn = 1.0;
+            if (xx < 0.0) {
+                zn = -z;
+                //
+                // CALCULATE CSGN=EXP(FNU*PI*I) TO MINIMIZE LOSSES OF SIGNIFICANCE
+                // WHEN FNU IS LARGE
+                //
+                inu = (int)fnu;
+                arg = (fnu - inu)*pi;
+                if (yy < 0.0) { arg = -arg; }
+                s1 = cos(arg);
+                s2 = sin(arg);
+                csgn = CMPLX(s1, s2);
+                if (inu % 2 == 1) { csgn = -csgn; }
+            }
+            nz = binu(zn, fnu, kode, n, cy, rl, fnul, tol, elim, alim);
+            if (nz >= 0) {
+                if (xx > 0.0) { return nz; }
+                //
+                // ANALYTIC CONTINUATION TO THE LEFT HALF PLANE
+                //
+                nn = n - z;
+                if (nn == 0) { return nz; }
+                rtol = 1.0 / tol;
+                ascle = d1mach[0]*rtol*1e3;
+                for (i = 1; i < (nn+1); i++)
+                {
+                    zn = cy[i-1];
+                    aa = creal(zn);
+                    bb = cimag(zn);
+                    atol = 1.0;
+                    if (fmax(fabs(aa), fabs(bb)) <= ascle) {
+                        zn *= rtol;
+                        atol = tol;
+                    }
+                    zn *= csgn;
+                    cy[i-1] = zn*atol;
+                    csgn = -csgn;
+                }
+                return nz;
+            }
+            if (nz != 2) {
+                *ierr = 2;
+                return 0;
+            }
+            *ierr = 5;
+            return 0;
+        }
+    }
+    *ierr = 4;
+    return 0;
+}
+
+
+int besj(
+    double complex z,
+    double fnu,
+    int kode,
+    int n,
+    double complex *cy,
+    int *ierr
+) {
+    double complex ci, csgn, zn;
+    double aa, alim, arg, dig, elim, fnul, rl, r1, r1m5, r2,
+        tol, yy, az, fn, bb, ascle, rtol, atol;
+    int i, inu, inuh, ir, k1, k2, nl, nz, k;
+    double hpi = 1.570796326794896619;
+
+    *ierr = 0;
+    nz = 0;
+    if (fnu < 0.0) *ierr = 1;
+    if (kode < 1 || kode > 2) *ierr = 1;
+    if (n < 1) *ierr = 1;
+    if (*ierr != 0) return nz;
+
+    tol = fmax(d1mach[3], 1e-18);
+    k1 = i1mach[14];
+    k2 = i1mach[15];
+    r1m5 = d1mach[4];
+    k = (abs(k1) > abs(k2) ? abs(k2) : abs(k1) );
+    elim = 2.303 * (k*r1m5 - 3.0);
+    k1 = i1mach[13] - 1;
+    aa = r1m5*k1;
+    dig = (aa > 18.0 ? 18.0 : aa);
+    aa *= 2.303;
+    alim = elim + (-aa > -41.45 ? -aa : -41.45);
+    fnul = 10.0 + 6.0 * (dig - 3.0);
+    rl = 1.2*dig + 3.0;
+    ci = I;
+    yy = cimag(z);
+    az = cabs(z);
+
+    //-----------------------------------------------------------------------
+    //     TEST FOR RANGE
+    //-----------------------------------------------------------------------
+    aa = 0.5 / tol;
+    bb = d1mach[1] * 0.5;
+    aa = fmin(aa, bb);
+    fn = fnu + (n - 1);
+    if (az <= aa) {
+        if (fn <= aa) {
+            aa = sqrt(aa);
+            if (az > aa) *ierr = 3;
+            if (fn > aa) *ierr = 3;
+            //-----------------------------------------------------------------------
+            //     CALCULATE CSGN = EXP(FNU*HPI*I) TO MINIMIZE LOSSES OF SIGNIFICANCE
+            //     WHEN FNU IS LARGE
+            //-----------------------------------------------------------------------
+            inu = (int)fnu;
+            inuh = inu / 2;
+            ir = inu - 2 * inuh;
+            arg = (fnu - (inu - ir)) * hpi;
+            r1 = cos(arg);
+            r2 = sin(arg);
+            csgn = CMPLX(r1, r2);
+            if (inuh % 2 == 1) { csgn = -csgn; }
+            //-----------------------------------------------------------------------
+            //     ZN IS IN THE RIGHT HALF PLANE
+            //-----------------------------------------------------------------------
+            zn = -z * ci;
+            if (yy < 0.0) {
+                zn = -zn;
+                csgn = conj(csgn);
+                ci = conj(ci);
+            }
+            nz = binu(zn, fnu, kode, n, cy, rl, fnul, tol, elim, alim);
+            if (nz >= 0) {
+                nl = n - nz;
+                if (nl == 0) { return nz; }
+                rtol = 1.0 / tol;
+                ascle = d1mach[0]*rtol*1e3;
+                for (i = 1; i < (nl+1); i++) 
+                {
+                    zn = cy[i-1];
+                    aa = creal(zn);
+                    bb = cimag(zn);
+                    atol = 1.0;
+                    if (fmax(fabs(aa), fabs(bb)) <= ascle) {
+                        zn *= rtol;
+                        atol = tol;
+                    }
+                    zn *= csgn;
+                    cy[i-1] = zn * atol;
+                    csgn = csgn * ci;
+                }
+                return nz;
+            }
+            if (nz != -2) {
+                *ierr = 2;
+                return 0;
+            }
+            *ierr = 5;
+            return 0;
+        }
+    }
+    *ierr = 4;
+    return 0;
+}
+
+
+int besk(
+    double complex z,
+    double fnu,
+    int kode,
+    int n,
+    double complex *cy,
+    int *ierr
+) {
+    double xx = creal(z);
+    double yy = cimag(z);
+    double aa, alim, aln, arg, az, dig, elim, fn, fnul, rl, r1m5, tol, ufl, bb;
+    int k, k1, k2, mr, nn, nuf, nw, nz;
+
+    *ierr = 0;
+    nz = 0;
+
+    if ((yy == 0.0) && (xx == 0.0)) { *ierr = 1; }
+    if (fnu < 0.0) { *ierr = 1; }
+    if (kode < 1 || kode > 2) { *ierr = 1; }
+    if (n < 1) { *ierr = 1; }
+    if (*ierr != 0) { return nz; }
+
+    nn = n;
+    //
+    //  SET PARAMETERS RELATED TO MACHINE CONSTANTS.
+    //  TOL IS THE APPROXIMATE UNIT ROUNDOFF LIMITED TO 1.0E-18.
+    //  ELIM IS THE APPROXIMATE EXPONENTIAL OVER- AND UNDERFLOW LIMIT.
+    //  EXP(-ELIM).LT.EXP(-ALIM)=EXP(-ELIM)/TOL    AND
+    //  EXP(ELIM).GT.EXP(ALIM)=EXP(ELIM)*TOL       ARE INTERVALS NEAR
+    //  UNDERFLOW AND OVERFLOW LIMITS WHERE SCALED ARITHMETIC IS DONE.
+    //  RL IS THE LOWER BOUNDARY OF THE ASYMPTOTIC EXPANSION FOR LARGE Z.
+    //  DIG = NUMBER OF BASE 10 DIGITS IN TOL = 10**(-DIG).
+    //  FNUL IS THE LOWER BOUNDARY OF THE ASYMPTOTIC SERIES FOR LARGE FNU
+    //
+    tol = fmax(d1mach[3], 1e-18);
+    k1 = i1mach[14];
+    k2 = i1mach[15];
+    r1m5 = d1mach[4];
+    k = (abs(k1) > abs(k2) ? abs(k2) : abs(k1) );
+    elim = 2.303 * (k*r1m5 - 3.0);
+    k1 = i1mach[13] - 1;
+    aa = r1m5*k1;
+    dig = (aa > 18.0 ? 18.0 : aa);
+    aa *= 2.303;
+    alim = elim + (-aa > -41.45 ? -aa : -41.45);
+    fnul = 10.0 + 6.0 * (dig - 3.0);
+    rl = 1.2 * dig + 3.0;
+    az = cabs(z);
+    fn = fnu + (nn - 1);
+    //
+    // TEST FOR RANGE
+    //
+    aa = 0.5 / tol;
+    bb = d1mach[1] * 0.5;
+    aa = fmin(aa, bb);
+    if (az <= aa) {
+        if (fn <= aa) {
+            aa = sqrt(aa);
+            if (az > aa) { *ierr = 3; }
+            if (fn > aa) { *ierr = 3; }
+            //
+            // OVERFLOW TEST ON THE LAST MEMBER OF THE SEQUENCE
+            //
+            ufl = d1mach[0] * 1.0E+3;
+            if (az >= ufl) {
+                if (fnu <= fnul) {
+                    if (fn > 1.0) {
+                        if (fn <= 2.0) {
+                            if (az > tol) { goto L10; }
+                            arg = 0.5 * az;
+                            aln = -fn * log(arg);
+                            if (aln > elim) { goto L30; }
+                        } else {
+                            nuf = uoik(z, fnu, kode, 2, nn, cy, tol, elim, alim);
+                            if (nuf < 0) { goto L30; }
+                            nz += nuf;
+                            nn -= nuf;
+                            //
+                            // HERE NN=N OR NN=0 SINCE NUF=0,NN, OR -1 ON RETURN FROM CUOIK
+                            // IF NUF=NN, THEN CY(I)=CZERO FOR ALL I
+                            //
+                            if (nn == 0) { goto L20; }
+                        }
+                    }
+L10:
+                    if (xx >= 0.0) {
+                        //
+                        // RIGHT HALF PLANE COMPUTATION, REAL(Z) >= 0.
+                        //
+                        nw = bknu(z, fnu, kode, nn, cy, tol, elim, alim);
+                        if (nw < 0) { goto L40; }
+                        return nw;
+                    }
+                    //
+                    // LEFT HALF PLANE COMPUTATION
+                    // PI/2 < ARG(Z) <= PI AND -PI < ARG(Z) < -PI/2.
+                    //
+                    if (nz != 0) { goto L30; }
+                    mr = 1;
+                    if (yy < 0.0) { mr = -1; }
+                    nw = acon(z, fnu, kode, mr, nn, cy, rl, fnul, tol, elim, alim);
+                    if (nw < 0) { goto L40; }
+                    return nw;
+                }
+                // Uniform asymptotic expansions for fnu > fnul
+                mr = 0;
+                if (xx < 0.0) {
+                    mr = 1;
+                    if (yy < 0.0) { mr = -1; }
+                }
+                nw = bunk(z, fnu, kode, mr, nn, cy, tol, elim, alim);
+                if (nw < 0) { goto L40; }
+                nz += nw;
+                return nz;
+L20:            
+                if (xx > 0.0) { return nz ; }
+            }
+L30:
+            *ierr = 2;
+            return 0;
+L40:
+            if (nw == -1) { goto L30; }
+            *ierr = 5;
+            return 0;
+        }
+    }
+    *ierr = 4;
+    return 0;
+}
+
+
+int besy(
+    double complex z,
+    double fnu,
+    int kode,
+    int n,
+    double complex *cy,
+    int *ierr
+    ) {
+    double complex ci, csgn, cspn, cwrk[n], ex, zu, zv, zz, zn;
+    double arg, elim, ey, r1, r2, tay, xx, yy, ascle, rtol, atol, tol, aa, bb,
+        ffnu, rhpi, r1m5;
+    int i, ifnu, k, k1, k2, nz, nz1, nz2, i4;
+    double complex cip[4] = { 1.0, I, -1.0, -I };
+    double hpi = 1.57079632679489662; /* 0.5 PI */
+
+    xx = creal(z);
+    yy = cimag(z);
+    *ierr = 0;
+    nz = 0;
+    if ((xx == 0.0) && (yy == 0.0)) { *ierr = 1; }
+    if (fnu < 0.0) { *ierr = 1; }
+    if ((kode < 1) || (kode > 2)) { *ierr = 1; }
+    if (n < 1) { *ierr = 1; }
+    if (*ierr != 0) { return nz; }
+    ci = I;
+    zz = z;
+    if (yy < 0.0) { zz = conj(z); }
+    zn = -ci * zz;
+    nz1 = besi(zn, fnu, kode, n, cy, ierr);
+    if (*ierr == 0 || *ierr == 3) {
+        nz2 = besk(zn, fnu, kode, n, cwrk, ierr);
+        if (*ierr == 0 || *ierr == 3) {
+            nz = (nz1 < nz2 ? nz1 : nz2);
+            ifnu = (int)fnu;
+            ffnu = fnu - ifnu;
+            arg = hpi * ffnu;
+            csgn = CMPLX(cos(arg), sin(arg));
+            i4 = (ifnu % 4) + 1;
+            csgn = csgn * cip[i4-1];
+            rhpi = 1.0 / hpi;
+            cspn = conj(csgn) * rhpi;
+            csgn = csgn * ci;
+            if (kode != 2) {
+                for (i = 1; i < (n+1); i++) {
+                    cy[i-1] = csgn * cy[i-1] - cspn * cwrk[i-1];
+                    csgn = ci * csgn;
+                    cspn = -ci * cspn;
+                }
+                if (yy < 0.0)
+                    for (i = 0; i < n; i++) { cy[i] = conj(cy[i]); }
+                return nz;
+            }
+            r1 = cos(xx);
+            r2 = sin(xx);
+            ex = CMPLX(r1, r2);
+            tol = fmax(d1mach[3], 1e-18);
+            k1 = i1mach[14];
+            k2 = i1mach[15];
+            r1m5 = d1mach[4];
+            k = (abs(k1) > abs(k2) ? abs(k2) : abs(k1) );
+            elim = 2.303 * (k*r1m5 - 3.0);
+            ey = 0.0;
+            tay = fabs(yy + yy);
+            if (tay < elim) { ey = exp(-tay); }
+            cspn = ex * ey * cspn;
+            nz = 0;
+            rtol = 1.0 / tol;
+            ascle = d1mach[0]*rtol*1e3;
+            for (i = 1; i < (n+1); i++) {
+                zv = cwrk[i-1];
+                aa = creal(zv);
+                bb = cimag(zv);
+                atol = 1.0;
+                if (fmax(fabs(aa), fabs(bb)) <= ascle) {
+                    zv *= rtol;
+                    atol = tol;
+                }
+                zv *= cspn;
+                zv *= atol;
+                zu = cy[i-1];
+                aa = creal(zu);
+                bb = cimag(zu);
+                atol = 1.0;
+                if (fmax(fabs(aa), fabs(bb)) <= ascle) {
+                    zu *= rtol;
+                    atol = tol;
+                }
+                zu *= csgn;
+                zu *= atol;
+                cy[i-1] = zu - zv;
+                if (yy < 0.0) { cy[i-1] = conj(cy[i-1]); }
+                if ((cy[i] == 0.0) && (ey == 0.0)) { nz = nz + 1; }
+                csgn *= ci; 
+                cspn *= -ci;
+            }
+        return nz;
+        }
+    }
+    return 0;
+}
+
+
 int binu(
     double complex z,
     double fnu,
