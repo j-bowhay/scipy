@@ -36,45 +36,6 @@ _ufuncs_pxi_pxd_sources = [
   fs.copyfile('_ufuncs_extra_code_common.pxi'),
 ]
 
-amos_sources = [
-  'amos/dgamln.f',
-  'amos/zabs.f',
-  'amos/zacai.f',
-  'amos/zacon.f',
-  'amos/zairy.f',
-  'amos/zasyi.f',
-  'amos/zbesh.f',
-  'amos/zbesi.f',
-  'amos/zbesj.f',
-  'amos/zbesk.f',
-  'amos/zbesy.f',
-  'amos/zbinu.f',
-  'amos/zbiry.f',
-  'amos/zbknu.f',
-  'amos/zbuni.f',
-  'amos/zbunk.f',
-  'amos/zdiv.f',
-  'amos/zexp.f',
-  'amos/zkscl.f',
-  'amos/zlog.f',
-  'amos/zmlri.f',
-  'amos/zmlt.f',
-  'amos/zrati.f',
-  'amos/zs1s2.f',
-  'amos/zseri.f',
-  'amos/zshch.f',
-  'amos/zsqrt.f',
-  'amos/zuchk.f',
-  'amos/zunhj.f',
-  'amos/zuni1.f',
-  'amos/zuni2.f',
-  'amos/zunik.f',
-  'amos/zunk1.f',
-  'amos/zunk2.f',
-  'amos/zuoik.f',
-  'amos/zwrsk.f'
-]
-
 cdflib_sources = [
   'cdflib/algdiv.f',
   'cdflib/alngam.f',
@@ -242,9 +203,8 @@ cephes_lib = static_library('cephes',
   dependencies: [py3_dep, np_dep],
 )
 
-amos_lib = static_library('amos',
-  amos_sources,
-  fortran_args: _fflag_Wno_maybe_uninitialized
+amos_lib = static_library('_amos',
+  ['_amos.c']
 )
 
 cdflib_lib = static_library('cdflib',
