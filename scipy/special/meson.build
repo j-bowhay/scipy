@@ -177,6 +177,13 @@ mach_sources = [
   'mach/xerror.f'
 ]
 
+amos_lib = static_library('_amos',
+  ['_amos.c'],
+  c_args: use_math_defines,
+  include_directories: ['../_lib', '../_build_utils/src'],
+)
+
+
 ufuncs_sources = [
   '_cosine.c',
   'scaled_exp1.c',
@@ -201,10 +208,6 @@ cephes_lib = static_library('cephes',
   c_args: use_math_defines,
   include_directories: ['../_lib', '../_build_utils/src'],
   dependencies: [py3_dep, np_dep],
-)
-
-amos_lib = static_library('_amos',
-  ['_amos.c']
 )
 
 cdflib_lib = static_library('cdflib',
