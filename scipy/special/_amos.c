@@ -3584,7 +3584,7 @@ void amos_uni1(
     // MAGNITUDE ARE SCALED TO KEEP INTERMEDIATE ARITHMETIC ON SCALE,
     // EXP(ALIM)=EXP(ELIM)*TOL
     //
-    cscl = 1.;
+    cscl = 1.0 / tol;
     crsc = tol;
     double css[3] = {cscl, 1., crsc};
     double csr[3] = {crsc, 1., cscl};
@@ -3983,7 +3983,7 @@ void amos_unik(
     t = 1.0;
     if (ikflg != 2) {
 
-        for (i = 0; i < (*init + 1); i++) {
+        for (i = 0; i < (*init); i++) {
             *total += cwrk[i];
         }
         *phi = cwrk[15] * con[0];
