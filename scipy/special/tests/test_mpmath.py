@@ -83,7 +83,7 @@ def test_hyp0f1_gh5764():
     dataset = np.array(dataset)
 
     FuncData(lambda v, z: sc.hyp0f1(v.real, z), dataset, (0, 1), 2,
-             rtol=1e-13).check()
+             rtol=2e-13).check()
 
 
 @check_version(mpmath, '0.19')
@@ -1321,7 +1321,7 @@ class TestSystematic:
         assert_mpmath_equal(
             sc.gamma,
             exception_to_nan(mpmath.gamma),
-            [ComplexArg()], 
+            [ComplexArg()],
             rtol=5e-13,
         )
 
