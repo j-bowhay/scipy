@@ -1,6 +1,9 @@
 #include "amos_wrappers.h"
 #define CADDR(z) ((double *) (&(z))), (&(((double *) (&(z)))[1]))
 
+#ifndef CMPLX
+#define CMPLX(x, y) ((double complex)((double)(x) + I * (double)(y)))
+#endif /* CMPLX */
 
 int ierr_to_sferr(int nz, int ierr) {
   /* Return sf_error equivalents for ierr values */
