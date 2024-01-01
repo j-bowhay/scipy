@@ -456,6 +456,29 @@ static double dgamln_cf[22] = {
     4.88788064793079335e+14, -2.13203339609193739e+16
 };
 
+static int amos_acai(double complex, double, int, int, int, double complex *, double, double, double, double);
+static int amos_acon(double complex, double, int, int, int, double complex *, double, double, double, double, double);
+static int amos_asyi(double complex, double, int, int, double complex *, double, double, double, double);
+static int amos_binu(double complex, double fnu, int, int, double complex *, double, double, double, double, double);
+static int amos_bknu(double complex, double, int, int, double complex *, double, double, double);
+static int amos_buni(double complex, double, int, int, double complex *, int, int *, double, double, double, double);
+static int amos_bunk(double complex, double, int, int, int, double complex *, double, double, double);
+static double amos_gamln(double);
+static int amos_kscl(double complex, double, int, double complex *, double complex, double *, double, double);
+static int amos_mlri(double complex, double, int, int, double complex *, double);
+static void amos_rati(double complex, double, int, double complex *, double);
+static int amos_seri(double complex, double, int, int, double complex *, double, double, double);
+static int amos_s1s2(double complex, double complex *, double complex *, double, double, int *);
+static int amos_uchk(double complex, double, double);
+static void amos_unhj(double complex, double, int, double, double complex *, double complex *, double complex *, double complex *, double complex *, double complex *);
+static void amos_uni1(double complex, double, int, int, double complex *, int *, int *, double, double, double, double);
+static void amos_uni2(double complex, double, int, int, double complex *, int *, int *, double, double, double, double);
+static void amos_unik(double complex, double, int, int, double, int *, double complex *, double complex *, double complex *, double complex *, double complex *);
+static int amos_unk1(double complex, double, int, int, int, double complex *, double, double, double);
+static int amos_unk2(double complex, double, int, int, int, double complex *, double, double, double);
+static int amos_uoik(double complex, double, int, int, int, double complex *, double, double, double);
+static int amos_wrsk(double complex, double, int, int, double complex *, double complex *, double, double, double);
+
 
 int amos_acai(
     double complex z,
