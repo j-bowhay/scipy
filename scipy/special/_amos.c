@@ -1,5 +1,8 @@
 #include "_amos.h"
 
+#ifndef CMPLX
+#define CMPLX(x, y) ((double complex)((double)(x) + I * (double)(y)))
+#endif /* CMPLX */
 
 static double d1mach[5] = {
     2.2250738585072014e-308, /* np.finfo(np.float64).tiny */
@@ -2451,7 +2454,7 @@ L190:
     ascle = bry[0];
     nz = amos_kscl(zd, fnu, n, &y[0], rz, &ascle, tol, elim);
     inu = n - nz;
-    if (inu < 0) { return nz; }
+    if (inu <= 0) { return nz; }
     kk = nz + 1;
     s1 = y[kk-1];
     y[kk-1] = s1 * csr[0];
@@ -3107,8 +3110,8 @@ int amos_seri(
     crsc = 1.0;
     iflag = 0;
     if (az >= arm) {
-        hz = z*0.5;
-        cz = 0.;
+        hz = 0.5*z;
+        cz = 0.0;
         if (az > rtr1) { cz = hz*hz; }
         acz = cabs(cz);
         nn = n;
@@ -3146,7 +3149,7 @@ L30:
         ak = cimag(ak1);
         aa = exp(rak1);
         if (iflag == 1) { aa *= ss; }
-        coef = aa * (cos(ak) + sin(ak)*I);
+        coef = aa * CMPLX(cos(ak), sin(ak));
         atol = tol * acz / fnup;
         il = (nn > 2 ? 2 : nn);
         for (int i = 1; i < (il +1); i++)
@@ -3159,21 +3162,24 @@ L30:
                 ak = fnup + 2.0;
                 s = fnup;
                 aa = 2.0;
-L40:
-                rs = 1.0 / s;
-                ak1 *= cz * rs;
-                s1 += ak1;
-                s += ak;
-                ak += 2.0;
-                aa *= acz * rs;
-                if (aa > atol) { goto L40; }
+                while (1) {
+                    rs = 1.0 / s;
+                    ak1 *= cz;
+                    ak1 *= rs;
+                    s1 += ak1;
+                    s += ak;
+                    ak += 2.0;
+                    aa *= acz;
+                    aa *= rs;
+                    if (aa <= atol) { break; }
+                }
             }
-            m = nn - i + 1;
             s2 = s1 * coef;
             w[i-1] = s2;
             if (iflag != 0) {
                 if (amos_uchk(s2, ascle, tol)) { goto L20; }
             }
+            m = nn - i + 1;
             y[m-1] = s2 * crsc;
             if (i != il) { coef *= dfnu / hz; }
         }
@@ -3192,6 +3198,13 @@ L60:
         }
         return nz;
 L80:
+        //
+        // RECUR BACKWARD WITH SCALED VALUES
+        //
+        //
+        // EXP(-ALIM)=EXP(-ELIM)/TOL=APPROX. ONE PRECISION ABOVE THE
+        // UNDERFLOW LIMIT = ASCLE = D1MACH(1)*SS*1000
+        //
         s1 = w[0];
         s2 = w[1];
         l = 3;
