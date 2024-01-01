@@ -2142,17 +2142,18 @@ int amos_bknu(
                 if (caz >= tol) {
                     cz = z * z * 0.25;
                     t1 = 0.25 * caz * caz;
-L30:
-                    f = (f*ak + p + q) / bk;
-                    p = p / (ak-dnu);
-                    q = q / (ak+dnu);
-                    rk = 1.0 / ak;
-                    ck *= cz * rk;
-                    s1 += ck * f;
-                    a1 *= t1 * rk;
-                    bk += ak + ak + 1.0;
-                    ak += 1.0;
-                    if (a1 > tol) { goto L30; }
+                    do{
+                        f = (f*ak + p + q) / bk;
+                        p = p / (ak-dnu);
+                        q = q / (ak+dnu);
+                        rk = 1.0 / ak;
+                        ck *= cz * rk;
+                        s1 += ck * f;
+                        a1 *= t1 * rk;
+                        bk += ak + ak + 1.0;
+                        ak += 1.0;
+                    }
+                    while (a1 > tol);
                 }
                 y[0] = s1;
                 if (koded == 1) { return nz; }
@@ -2165,18 +2166,19 @@ L30:
             if (caz >= tol) {
                 cz = z * z * 0.25;
                 t1 = 0.25 * caz * caz;
-L40:
-                f = (f*ak + p + q) / bk;
-                p *= 1.0 / (ak - dnu);
-                q *= 1.0 / (ak + dnu);
-                rk = 1. / ak;
-                ck *= cz * rk;
-                s1 += ck * f;
-                s2 += ck * (p - f*ak);
-                a1 *= t1 * rk;
-                bk += ak + ak + 1.0;
-                ak += 1.0;
-                if (a1 > tol) { goto L40; }
+                do{
+                    f = (f*ak + p + q) / bk;
+                    p *= 1.0 / (ak - dnu);
+                    q *= 1.0 / (ak + dnu);
+                    rk = 1. / ak;
+                    ck *= cz * rk;
+                    s1 += ck * f;
+                    s2 += ck * (p - f*ak);
+                    a1 *= t1 * rk;
+                    bk += ak + ak + 1.0;
+                    ak += 1.0;
+                }
+                while (a1 > tol);
             }
             kflag = 2;
             bk = creal(smu);
