@@ -501,39 +501,35 @@ int amos_acai(
     az = cabs(z);
     nn = n;
     dfnu = fnu + (n-1);
-    if (az > 2.) {
-        if (az*az*0.25 > dfnu+1.0) {
-            goto L10;
+    if (az > 2. && az*az*0.25 > dfnu+1.0) {
+        /* GOTO 10 */
+        if (az >= rl) {
+            //
+            // ASYMPTOTIC EXPANSION FOR LARGE Z FOR THE I FUNCTION
+            //
+            nw = amos_asyi(zn, fnu, kode, nn, y, rl, tol, elim, alim);
+            if (nw < 0) {
+                nz = -1;
+                if (nw == -2) { nz = -2; }
+                return nz;
+            }
+        } else {
+            //
+            // MILLER ALGORITHM NORMALIZED BY THE SERIES FOR THE I FUNCTION
+            //
+            nw = amos_mlri(zn, fnu, kode, nn, y, tol);
+            if (nw < 0) {
+                nz = -1;
+                if (nw == -2) { nz = -2; }
+                return nz;
+            }
         }
+    } else{
+        //
+        // POWER SERIES FOR THE I FUNCTION
+        //
+        amos_seri(zn, fnu, kode, nn, y, tol, elim, alim);
     }
-    //
-    // POWER SERIES FOR THE I FUNCTION
-    //
-    amos_seri(zn, fnu, kode, nn, y, tol, elim, alim);
-    goto L40;
-L10:
-    if (az >= rl) {
-        //
-        // ASYMPTOTIC EXPANSION FOR LARGE Z FOR THE I FUNCTION
-        //
-        nw = amos_asyi(zn, fnu, kode, nn, y, rl, tol, elim, alim);
-        if (nw < 0) {
-            nz = -1;
-            if (nw == -2) { nz = -2; }
-            return nz;
-        }
-    } else {
-        //
-        // MILLER ALGORITHM NORMALIZED BY THE SERIES FOR THE I FUNCTION
-        //
-        nw = amos_mlri(zn, fnu, kode, nn, y, tol);
-        if (nw < 0) {
-            nz = -1;
-            if (nw == -2) { nz = -2; }
-            return nz;
-        }
-    }
-L40:
 //
 // ANALYTIC CONTINUATION TO THE LEFT HALF PLANE FOR THE K FUNCTION
 //
