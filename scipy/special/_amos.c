@@ -4113,7 +4113,7 @@ int amos_unk1(
             c2m = exp(c2r)*creal(css[kflag-1]);
             s1 = c2m * CMPLX(cos(c2i), sin(c2i));
             s2 *= s1;
-            if (kflag == 1) { if (amos_uchk(s2, bry[0], tol)) { goto L10; }}
+            if (kflag == 1 && amos_uchk(s2, bry[0], tol)) { goto L10; }
             cy[kdflg-1] = s2;
             y[i-1] = s2*csr[kflag-1];
             if (kdflg == 2) { goto L30; }
