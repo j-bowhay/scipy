@@ -508,21 +508,16 @@ int amos_acai(
             // ASYMPTOTIC EXPANSION FOR LARGE Z FOR THE I FUNCTION
             //
             nw = amos_asyi(zn, fnu, kode, nn, y, rl, tol, elim, alim);
-            if (nw < 0) {
-                nz = -1;
-                if (nw == -2) { nz = -2; }
-                return nz;
-            }
         } else {
             //
             // MILLER ALGORITHM NORMALIZED BY THE SERIES FOR THE I FUNCTION
             //
             nw = amos_mlri(zn, fnu, kode, nn, y, tol);
-            if (nw < 0) {
-                nz = -1;
-                if (nw == -2) { nz = -2; }
-                return nz;
-            }
+        }
+        if (nw < 0) {
+            nz = -1;
+            if (nw == -2) { nz = -2; }
+            return nz;
         }
     } else{
         //
