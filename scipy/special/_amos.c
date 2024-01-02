@@ -501,8 +501,8 @@ int amos_acai(
     az = cabs(z);
     nn = n;
     dfnu = fnu + (n-1);
-    if (az > 2. && az*az*0.25 > dfnu+1.0) {
-        /* GOTO 10 */
+    if ((az > 2.0) && (az*az*0.25 > dfnu+1.0)) {
+        /* 20 */
         if (az >= rl) {
             //
             // ASYMPTOTIC EXPANSION FOR LARGE Z FOR THE I FUNCTION
@@ -525,9 +525,10 @@ int amos_acai(
         //
         amos_seri(zn, fnu, kode, nn, y, tol, elim, alim);
     }
-//
-// ANALYTIC CONTINUATION TO THE LEFT HALF PLANE FOR THE K FUNCTION
-//
+    /* 40 */
+    //
+    // ANALYTIC CONTINUATION TO THE LEFT HALF PLANE FOR THE K FUNCTION
+    //
     nw = amos_bknu(zn, fnu, kode, 1, &cy[0], tol, elim, alim);
     if (nw != 0) {
         nz = -1;
@@ -2137,7 +2138,7 @@ int amos_bknu(
                 if (caz >= tol) {
                     cz = z * z * 0.25;
                     t1 = 0.25 * caz * caz;
-                    do{
+                    do {
                         f = (f*ak + p + q) / bk;
                         p = p / (ak-dnu);
                         q = q / (ak+dnu);
@@ -2147,8 +2148,7 @@ int amos_bknu(
                         a1 *= t1 * rk;
                         bk += ak + ak + 1.0;
                         ak += 1.0;
-                    }
-                    while (a1 > tol);
+                    } while (a1 > tol);
                 }
                 y[0] = s1;
                 if (koded == 1) { return nz; }
@@ -2161,7 +2161,7 @@ int amos_bknu(
             if (caz >= tol) {
                 cz = z * z * 0.25;
                 t1 = 0.25 * caz * caz;
-                do{
+                do {
                     f = (f*ak + p + q) / bk;
                     p *= 1.0 / (ak - dnu);
                     q *= 1.0 / (ak + dnu);
@@ -2172,8 +2172,7 @@ int amos_bknu(
                     a1 *= t1 * rk;
                     bk += ak + ak + 1.0;
                     ak += 1.0;
-                }
-                while (a1 > tol);
+                } while (a1 > tol);
             }
             kflag = 2;
             bk = creal(smu);
@@ -4093,7 +4092,7 @@ int amos_unk1(
                 //
                 aphi = cabs(phi[jc]);
                 rs1 += log(aphi);
-                if (fabs(rs1) > elim) { goto L10;}
+                if (fabs(rs1) > elim) { goto L10; }
                 if (kdflg == 1) { kflag = 1; }
                 if (rs1 >= 0.0) { if (kdflg == 1) { kflag = 3; } }
             }
@@ -4108,7 +4107,7 @@ int amos_unk1(
             c2m = exp(c2r)*creal(css[kflag-1]);
             s1 = c2m * CMPLX(cos(c2i), sin(c2i));
             s2 *= s1;
-            if (!(kflag == 1 && amos_uchk(s2, bry[0], tol))) {
+            if (!((kflag == 1) && (amos_uchk(s2, bry[0], tol)))) {
                 cy[kdflg-1] = s2;
                 y[i-1] = s2*csr[kflag-1];
                 if (kdflg == 2) { break; }
@@ -4129,6 +4128,8 @@ L10:
             }
         }
     }
+    /* Check for exhausted loop */
+    if (i == (n+1)) { i = n; }
 
     rz = 2.0 / zr;
     ck = fn * rz;
