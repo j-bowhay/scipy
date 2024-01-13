@@ -435,7 +435,7 @@ add_newdoc("airy",
     the Cephes [1]_ `airy` routine, which uses power series summation
     for small `z` and rational minimax approximations for large `z`.
 
-    Outside this range, the AMOS [2]_ `zairy` and `zbiry` routines are
+    Outside this range, a C translation of the AMOS [2]_ `zairy` and `zbiry` routines is
     employed.  They are computed using power series for :math:`|z| < 1` and
     the following relations to modified Bessel functions for larger `z`
     (where :math:`t \equiv 2 z^{3/2}/3`):
@@ -511,7 +511,7 @@ add_newdoc("airye",
 
     Notes
     -----
-    Wrapper for the AMOS [1]_ routines `zairy` and `zbiry`.
+    Wrapper for a C translation of the AMOS [1]_ routines `zairy` and `zbiry`.
 
     References
     ----------
@@ -6473,8 +6473,8 @@ add_newdoc("hankel1",
 
     Notes
     -----
-    A wrapper for the AMOS [1]_ routine `zbesh`, which carries out the
-    computation using the relation,
+    A wrapper for a C translation of the AMOS [1]_ routine `zbesh`, which carries out
+    the computation using the relation,
 
     .. math:: H^{(1)}_v(z) =
               \frac{2}{\imath\pi} \exp(-\imath \pi v/2) K_v(z \exp(-\imath\pi/2))
@@ -6519,8 +6519,8 @@ add_newdoc("hankel1e",
 
     Notes
     -----
-    A wrapper for the AMOS [1]_ routine `zbesh`, which carries out the
-    computation using the relation,
+    A wrapper for a C translation of the AMOS [1]_ routine `zbesh`, which carries out
+    the computation using the relation,
 
     .. math:: H^{(1)}_v(z) =
               \frac{2}{\imath\pi} \exp(-\imath \pi v/2) K_v(z \exp(-\imath\pi/2))
@@ -6565,8 +6565,8 @@ add_newdoc("hankel2",
 
     Notes
     -----
-    A wrapper for the AMOS [1]_ routine `zbesh`, which carries out the
-    computation using the relation,
+    A wrapper for a C translation of the AMOS [1]_ routine `zbesh`, which carries out
+    the computation using the relation,
 
     .. math:: H^{(2)}_v(z) =
               -\frac{2}{\imath\pi} \exp(\imath \pi v/2) K_v(z \exp(\imath\pi/2))
@@ -6611,8 +6611,8 @@ add_newdoc("hankel2e",
 
     Notes
     -----
-    A wrapper for the AMOS [1]_ routine `zbesh`, which carries out the
-    computation using the relation,
+    A wrapper for a C translation of the AMOS [1]_ routine `zbesh`, which carries out
+    the computation using the relation,
 
     .. math:: H^{(2)}_v(z) = -\frac{2}{\imath\pi}
               \exp(\frac{\imath \pi v}{2}) K_v(z exp(\frac{\imath\pi}{2}))
@@ -7897,8 +7897,8 @@ add_newdoc("iv",
     using Temme's method [1]_.  For larger orders, uniform asymptotic
     expansions are applied.
 
-    For complex `z` and positive `v`, the AMOS [2]_ `zbesi` routine is
-    called. It uses a power series for small `z`, the asymptotic expansion
+    For complex `z` and positive `v`, a C translation of the  AMOS [2]_ `zbesi` routine
+    is called. It uses a power series for small `z`, the asymptotic expansion
     for large `abs(z)`, the Miller algorithm normalized by the Wronskian
     and a Neumann series for intermediate magnitudes, and the uniform
     asymptotic expansions for :math:`I_v(z)` and :math:`J_v(z)` for large
@@ -7916,7 +7916,7 @@ add_newdoc("iv",
     .. math:: I_{-v}(z) = I_v(z) + \frac{2}{\pi} \sin(\pi v) K_v(z)
 
     is used, where :math:`K_v(z)` is the modified Bessel function of the
-    second kind, evaluated using the AMOS routine `zbesk`.
+    second kind, evaluated using a C translation of the AMOS routine `zbesk`.
 
     References
     ----------
@@ -8011,8 +8011,8 @@ add_newdoc("ive",
 
     Notes
     -----
-    For positive `v`, the AMOS [1]_ `zbesi` routine is called. It uses a
-    power series for small `z`, the asymptotic expansion for large
+    For positive `v`, a C translation of the AMOS [1]_ `zbesi` routine is called. It
+    uses a power series for small `z`, the asymptotic expansion for large
     `abs(z)`, the Miller algorithm normalized by the Wronskian and a
     Neumann series for intermediate magnitudes, and the uniform asymptotic
     expansions for :math:`I_v(z)` and :math:`J_v(z)` for large orders.
@@ -8030,7 +8030,7 @@ add_newdoc("ive",
     .. math:: I_{-v}(z) = I_v(z) + \frac{2}{\pi} \sin(\pi v) K_v(z)
 
     is used, where :math:`K_v(z)` is the modified Bessel function of the
-    second kind, evaluated using the AMOS routine `zbesk`.
+    second kind, evaluated using a C translation of the AMOS routine `zbesk`.
 
     `ive` is useful for large arguments `z`: for these, `iv` easily overflows,
     while `ive` does not due to the exponential scaling.
@@ -8285,8 +8285,8 @@ add_newdoc("jv",
 
     Notes
     -----
-    For positive `v` values, the computation is carried out using the AMOS
-    [1]_ `zbesj` routine, which exploits the connection to the modified
+    For positive `v` values, the computation is carried out using a C translation of the
+    AMOS [1]_ `zbesj` routine, which exploits the connection to the modified
     Bessel function :math:`I_v`,
 
     .. math::
@@ -8299,8 +8299,8 @@ add_newdoc("jv",
     .. math:: J_{-v}(z) = J_v(z) \cos(\pi v) - Y_v(z) \sin(\pi v)
 
     is used, where :math:`Y_v(z)` is the Bessel function of the second
-    kind, computed using the AMOS routine `zbesy`.  Note that the second
-    term is exactly zero for integer `v`; to improve accuracy the second
+    kind, computed using a C translation of the AMOS routine `zbesy`.  Note that the
+    second term is exactly zero for integer `v`; to improve accuracy the second
     term is explicitly omitted for `v` values such that `v = floor(v)`.
 
     Not to be confused with the spherical Bessel functions (see `spherical_jn`).
@@ -8406,8 +8406,8 @@ add_newdoc("jve",
     .. math:: J_{-v}(z) = J_v(z) \cos(\pi v) - Y_v(z) \sin(\pi v)
 
     is used, where :math:`Y_v(z)` is the Bessel function of the second
-    kind, computed using the AMOS routine `zbesy`.  Note that the second
-    term is exactly zero for integer `v`; to improve accuracy the second
+    kind, computed using a C translation of the AMOS routine `zbesy`.  Note that the
+    second term is exactly zero for integer `v`; to improve accuracy the second
     term is explicitly omitted for `v` values such that `v = floor(v)`.
 
     Exponentially scaled Bessel functions are useful for large arguments `z`:
@@ -8997,8 +8997,8 @@ add_newdoc("kn",
 
     Notes
     -----
-    Wrapper for AMOS [1]_ routine `zbesk`.  For a discussion of the
-    algorithm used, see [2]_ and the references therein.
+    Wrapper for a C translation of the AMOS [1]_ routine `zbesk`.  For a discussion of
+    the algorithm used, see [2]_ and the references therein.
 
     References
     ----------
@@ -9225,8 +9225,8 @@ add_newdoc("kv",
 
     Notes
     -----
-    Wrapper for AMOS [1]_ routine `zbesk`.  For a discussion of the
-    algorithm used, see [2]_ and the references therein.
+    Wrapper for a C translation of the AMOS [1]_ routine `zbesk`.  For a discussion of
+    the algorithm used, see [2]_ and the references therein.
 
     References
     ----------
@@ -9295,8 +9295,8 @@ add_newdoc("kve",
 
     Notes
     -----
-    Wrapper for AMOS [1]_ routine `zbesk`.  For a discussion of the
-    algorithm used, see [2]_ and the references therein.
+    Wrapper for a C translation of the AMOS [1]_ routine `zbesk`.  For a discussion of
+    the algorithm used, see [2]_ and the references therein.
 
     References
     ----------
@@ -13926,8 +13926,8 @@ add_newdoc("yv",
 
     Notes
     -----
-    For positive `v` values, the computation is carried out using the
-    AMOS [1]_ `zbesy` routine, which exploits the connection to the Hankel
+    For positive `v` values, the computation is carried out using a C translation of
+    the AMOS [1]_ `zbesy` routine, which exploits the connection to the Hankel
     Bessel functions :math:`H_v^{(1)}` and :math:`H_v^{(2)}`,
 
     .. math:: Y_v(z) = \frac{1}{2\imath} (H_v^{(1)} - H_v^{(2)}).
@@ -14030,8 +14030,8 @@ add_newdoc("yve",
 
     Notes
     -----
-    For positive `v` values, the computation is carried out using the
-    AMOS [1]_ `zbesy` routine, which exploits the connection to the Hankel
+    For positive `v` values, the computation is carried out using a C translation of
+    the AMOS [1]_ `zbesy` routine, which exploits the connection to the Hankel
     Bessel functions :math:`H_v^{(1)}` and :math:`H_v^{(2)}`,
 
     .. math:: Y_v(z) = \frac{1}{2\imath} (H_v^{(1)} - H_v^{(2)}).
@@ -14041,8 +14041,8 @@ add_newdoc("yve",
     .. math:: Y_{-v}(z) = Y_v(z) \cos(\pi v) + J_v(z) \sin(\pi v)
 
     is used, where :math:`J_v(z)` is the Bessel function of the first kind,
-    computed using the AMOS routine `zbesj`.  Note that the second term is
-    exactly zero for integer `v`; to improve accuracy the second term is
+    computed using a C translation of the AMOS routine `zbesj`.  Note that the second
+    term is exactly zero for integer `v`; to improve accuracy the second term is
     explicitly omitted for `v` values such that `v = floor(v)`.
 
     Exponentially scaled Bessel functions are useful for large `z`:
