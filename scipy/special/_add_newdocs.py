@@ -435,8 +435,8 @@ add_newdoc("airy",
     the Cephes [1]_ `airy` routine, which uses power series summation
     for small `z` and rational minimax approximations for large `z`.
 
-    Outside this range, a C translation of the AMOS [2]_ `zairy` and `zbiry` routines is
-    employed.  They are computed using power series for :math:`|z| < 1` and
+    Outside this range, a C translation of the AMOS [2]_ `zairy` and `zbiry` routines
+    are employed.  They are computed using power series for :math:`|z| < 1` and
     the following relations to modified Bessel functions for larger `z`
     (where :math:`t \equiv 2 z^{3/2}/3`):
 
