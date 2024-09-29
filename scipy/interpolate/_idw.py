@@ -4,7 +4,8 @@ from scipy.interpolate.interpnd import NDInterpolatorBase, _ndim_coords_from_arr
 
 __all__ = ['InverseDistanceWeightedNDInterpolator']
 
-class InverseDistanceWeightedNDInterpolator(NDInterpolatorBase):
+
+class IDWNDInterpolator(NDInterpolatorBase):
     """
     Inverse Distance Weighted (IDW) interpolation.
 
@@ -23,25 +24,13 @@ class InverseDistanceWeightedNDInterpolator(NDInterpolatorBase):
         of the input points. Default is nan.
     tree_options : dict, optional
         Options passed to the underlying `cKDTree`.
-    local : bool, optional
-        If True, perform local interpolation, else global. Default is True.
 
     Methods
     -------
-    __call__(xi, p=2, k=3, distance_upper_bound=np.inf, **query_options)
-        Evaluate the interpolator at given points.
+    __call__
 
     Examples
     --------
-    >>> points = np.array([[0, 0], [1, 1], [2, 2]])
-    >>> values = np.array([0, 1, 2])
-    >>> interpolator = InverseDistanceWeightedNDInterpolator(points, values)
-    >>> interpolator([1.5, 1.5])
-    array([1.42105263])
-    >>> def exp_weight(dists, power, decorrelation_length=1.5):
-    ...     return np.exp(-(dists / decorrelation_length) ** p)
-    >>> interpolator([1.5, 1.5], weight_func=exp_weight)
-    array([1.38311737])
 
     Notes
     -----
@@ -54,7 +43,7 @@ class InverseDistanceWeightedNDInterpolator(NDInterpolatorBase):
     def __init__(
         self, x, y, rescale=False, fill_value=np.nan, tree_options=None, local=True
     ):
-        NDInterpolatorBase.__init__(
+        super().__init__(
             self, x, y, rescale=rescale, need_contiguous=False, need_values=False
         )
         if tree_options is None:
