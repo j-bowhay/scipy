@@ -1,16 +1,11 @@
 import numpy as np
-from numpy.testing import (assert_equal, assert_array_equal,
-                             assert_array_almost_equal,
-                           assert_allclose, assert_array_less)
+from numpy.testing import assert_equal, assert_allclose, assert_array_less
 from pytest import raises as assert_raises
 
 from scipy.interpolate import InverseDistanceWeightedNDInterpolator
 
 
 class TestInverseDistanceWeightedNDInterpolator:
-    def __init__(self):
-        pass
-
     def _get_sample_data(self):
         points = np.array([[1., 1], [3, 3], [5, 5], [7, 7], [9, 9]])
         values = np.array([1., 3, 5, 7, 9])
@@ -48,7 +43,7 @@ class TestInverseDistanceWeightedNDInterpolator:
         query_points = np.array([[2, 2]])
         # Outside the convex hull of the data points
         interpolated_values = interpolator(query_points, distance_upper_bound=1e-7)
-        assert_array_equal(interpolated_values, fill_value,
+        assert_equal(interpolated_values, fill_value,
                            err_msg="Incorrect usage of fill_value")
 
     def test_input_dimensionality(self):
@@ -84,7 +79,7 @@ class TestInverseDistanceWeightedNDInterpolator:
         expected_values = np.array([1, 2])
         interpolated_values = interpolator(query_points,
                                            k=2)  # k=2, it will consider [1,1] and [3,3]
-        assert_array_almost_equal(interpolated_values, expected_values,
+        assert_allclose(interpolated_values, expected_values,
                                   err_msg="Basic functionality failed")
 
     def test_basic_functionality_power(self):
@@ -93,7 +88,7 @@ class TestInverseDistanceWeightedNDInterpolator:
         query_points = np.array([[1, 1], [2, 2]])
         expected_values = np.array([1, 2])
         interpolated_values = interpolator(query_points, k=2, p=3)
-        assert_array_almost_equal(interpolated_values, expected_values,
+        assert_allclose(interpolated_values, expected_values,
                                   err_msg="Basic functionality failed")
 
     def test_basic_functionality_power_values(self):
@@ -124,11 +119,11 @@ class TestInverseDistanceWeightedNDInterpolator:
         query_points = np.array([[0.5, 0.5], [99.5, 99.5]])
         expected_values = np.array([5, 10])
         interpolated_values = interpolator(query_points, k=50)
-        assert_array_almost_equal(interpolated_values, expected_values,
+        assert_allclose(interpolated_values, expected_values,
                                   err_msg="local functionality failed")
         interpolated_values = interpolator(query_points, k=51)
         with assert_raises(AssertionError):
-            assert_array_almost_equal(interpolated_values, expected_values)
+            assert_allclose(interpolated_values, expected_values)
 
     def test_basic_functionality_complex_values(self):
         points = np.array([[1., 1], [3, 3], [5, 5], [7, 7], [9, 9]])
@@ -138,7 +133,7 @@ class TestInverseDistanceWeightedNDInterpolator:
         expected_values = np.array([1, 2])
         interpolated_values = interpolator(query_points,
                                            k=2)  # k=2, it will consider [1,1] and [3,3]
-        assert_array_almost_equal(interpolated_values, expected_values,
+        assert_allclose(interpolated_values, expected_values,
                                   err_msg="Basic complex functionality failed")
 
     def test_with_different_rescale_options(self):
@@ -152,7 +147,7 @@ class TestInverseDistanceWeightedNDInterpolator:
         query_points = np.array([[50, 50], [150, 150]])
         interpolated_values_rescaled = interpolator_rescaled(query_points)
         interpolated_values_non_rescaled = interpolator_non_rescaled(query_points)
-        assert_array_almost_equal(interpolated_values_rescaled,
+        assert_allclose(interpolated_values_rescaled,
                                   interpolated_values_non_rescaled,
                                   err_msg="rescale functionality failed")
 
@@ -163,7 +158,7 @@ class TestInverseDistanceWeightedNDInterpolator:
         query_points = np.array([[0, 0]])
         interpolated_values = interpolator(query_points, k=len(points))
         expected_value = values.mean()  # or some other expected behavior
-        assert_array_almost_equal(interpolated_values, expected_value,
+        assert_allclose(interpolated_values, expected_value,
                                   err_msg="Failed when all points are at zero distance")
 
     def test_all_points_at_zero_distance_global(self):
@@ -174,7 +169,7 @@ class TestInverseDistanceWeightedNDInterpolator:
         query_points = np.array([[0, 0]])
         interpolated_values = interpolator(query_points)
         expected_value = values.mean()  # or some other expected behavior
-        assert_array_almost_equal(interpolated_values, expected_value,
+        assert_allclose(interpolated_values, expected_value,
                                   err_msg="Failed when all points are at zero distance")
 
     def test_weighting_func_functionality(self):
@@ -190,7 +185,7 @@ class TestInverseDistanceWeightedNDInterpolator:
                                                weight_func=exp_weight_func)
 
         with assert_raises(AssertionError):
-            assert_array_almost_equal(interpolated_values_normal,
+            assert_allclose(interpolated_values_normal,
                                       interpolated_values_exp)
 
     def test_idw_kdtree_options(self):

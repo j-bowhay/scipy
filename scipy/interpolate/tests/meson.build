@@ -4,6 +4,7 @@ py3.install_sources([
     'test_fitpack.py',
     'test_fitpack2.py',
     'test_gil.py',
+    'test_idw.py',
     'test_interpnd.py',
     'test_interpolate.py',
     'test_ndgriddata.py',
