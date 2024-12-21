@@ -906,7 +906,7 @@ def solve_circulant(c, b, singular='raise', tol=None,
     c : array_like
         The coefficients of the circulant matrix.
     b : array_like
-        Right-hand side matrix in ``a x = b``.
+        Right-hand side matrix in ``c x = b``.
     singular : str, optional
         This argument controls how a near singular circulant matrix is
         handled.  If `singular` is "raise" and the circulant matrix is
@@ -915,11 +915,9 @@ def solve_circulant(c, b, singular='raise', tol=None,
     tol : float, optional
         If any eigenvalue of the circulant matrix has an absolute value
         that is less than or equal to `tol`, the matrix is considered to be
-        near singular. If not given, `tol` is set to::
-
-            tol = abs_eigs.max() * abs_eigs.size * np.finfo(np.float64).eps
-
-        where `abs_eigs` is the array of absolute values of the eigenvalues
+        near singular. If not given, `tol` is set to
+        ``abs_eigs.max() * abs_eigs.size * np.finfo(np.float64).eps`` where
+        ``abs_eigs`` is the array of absolute values of the eigenvalues
         of the circulant matrix.
     caxis : int
         When `c` has dimension greater than 1, it is viewed as a collection
@@ -942,26 +940,12 @@ def solve_circulant(c, b, singular='raise', tol=None,
     Raises
     ------
     LinAlgError
-        If the circulant matrix associated with `c` is near singular.
+        If the circulant matrix associated with `c` is near singular and
+        ``singular="raise"``.
 
     See Also
     --------
     circulant : circulant matrix
-
-    Notes
-    -----
-    For a 1-D vector `c` with length `m`, and an array `b`
-    with shape ``(m, ...)``,
-
-        solve_circulant(c, b)
-
-    returns the same result as
-
-        solve(circulant(c), b)
-
-    where `solve` and `circulant` are from `scipy.linalg`.
-
-    .. versionadded:: 0.16.0
 
     Examples
     --------
@@ -973,7 +957,7 @@ def solve_circulant(c, b, singular='raise', tol=None,
     >>> solve_circulant(c, b)
     array([ 0.75, -0.25,  0.25])
 
-    Compare that result to solving the system with `scipy.linalg.solve`:
+    Compare that result to solving the system with `solve` and `circulant`:
 
     >>> solve(circulant(c), b)
     array([ 0.75, -0.25,  0.25])
