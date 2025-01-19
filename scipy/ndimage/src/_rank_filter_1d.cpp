@@ -48,14 +48,12 @@ int mmexchange(Mediator* m, int i, int j) {
 }
 
 // swaps items i & j if i < j;  returns true if swapped
-template <typename T>
-inline int mmCmpExch(T* data, Mediator* m, int i, int j) {
+template <typename T> inline int mmCmpExch(T* data, Mediator* m, int i, int j) {
   return (mmless(data, m, i, j) && mmexchange(m, i, j));
 }
 
 // maintains minheap property for all items below i.
-template <typename T>
-void minSortDown(T* data, Mediator* m, int i) {
+template <typename T> void minSortDown(T* data, Mediator* m, int i) {
   for (i *= 2; i <= m->minCt; i *= 2) {
     if (i < m->minCt && mmless(data, m, i + 1, i)) {
       ++i;
@@ -67,8 +65,7 @@ void minSortDown(T* data, Mediator* m, int i) {
 }
 
 // maintains maxheap property for all items below i. (negative indexes)
-template <typename T>
-void maxSortDown(T* data, Mediator* m, int i) {
+template <typename T> void maxSortDown(T* data, Mediator* m, int i) {
   for (i *= 2; i >= -m->maxCt; i *= 2) {
     if (i > -m->maxCt && mmless(data, m, i, i - 1)) {
       --i;
@@ -81,8 +78,7 @@ void maxSortDown(T* data, Mediator* m, int i) {
 
 // maintains minheap property for all items above i, including the rank
 // returns true if rank changed
-template <typename T>
-inline int minSortUp(T* data, Mediator* m, int i) {
+template <typename T> inline int minSortUp(T* data, Mediator* m, int i) {
   while (i > 0 && mmCmpExch(data, m, i, i / 2))
     i /= 2;
   return (i == 0);
@@ -90,8 +86,7 @@ inline int minSortUp(T* data, Mediator* m, int i) {
 
 // maintains maxheap property for all items above i, including rank
 // returns true if rank changed
-template <typename T>
-inline int maxSortUp(T* data, Mediator* m, int i) {
+template <typename T> inline int maxSortUp(T* data, Mediator* m, int i) {
   while (i < 0 && mmCmpExch(data, m, i / 2, i))
     i /= 2;
   return (i == 0);
