@@ -1348,6 +1348,22 @@ class TestMedFilt:
         xp_assert_equal(output, expected)
 
 
+def test_gh22333():
+    # An input that can somewhat reliably reproduce the bug in a short amount of iterations
+    # I also managed to replicate this issue for x = [272, 58, 67, 163, 463, 608, 87, 108, 1378] with kernel size 9 though
+    # I had to rerun the script multiple times for the wrong result to appear. In all cases of wrong results, I got
+    # [58, 67, 87, 108,  *272*, 108, 108, 108, 87] instead of [58, 67, 87, 108, *163*, 108, 108, 108, 87]
+    x = [272, 58, 67, 163, 463, 608, 87, 108, 1378, 72, 136, 566, 747, 122, 249, 302, 48, 181, 60, 104, 119, 206, 349, 223, 58, 105, 116, 136, 114, 386, 108, 112, 127, 91, 120, 110, 117, 117, 63, 65, 128, 97, 96, 99, 124, 107, 105, 122, 121, 129, 77, 104, 141, 132, 216, 301, 130, 113, 92, 89, 99, 311, 405, 41, 89, 103, 5044, 116, 71, 96, 92, 123, 4561, 84]
+
+    # Expected result after median filtering with kernel size 9 (zero-padded edges), computed using Scipy 1.14.1
+    # Especially note that the result from Scipy 1.15.1 is often wrong in the fifth element (y[4] != expected[4]),
+    # with value 272 instead of 163
+    expected = [58, 67, 87, 108, 163, 108, 136, 163, 463, 136, 136, 249, 249, 181, 181, 181, 122, 122, 181, 181, 119, 119, 116, 119, 119, 136, 116, 114, 114, 114, 116, 114, 114, 117, 112, 112, 117, 110, 110, 99, 99, 99, 99, 105, 107, 107, 107, 107, 121, 121, 122, 129, 130, 130, 130, 130, 130, 130, 130, 113, 99, 99, 99, 103, 103, 103, 96, 96, 103, 103, 96, 92, 84, 84]
+
+    for _ in range(1_000):
+        np.testing.assert_array_equal(signal.medfilt(x, 9), expected)
+
+
 @skip_xp_backends(cpu_only=True, exceptions=['cupy'])
 class TestWiener:
 

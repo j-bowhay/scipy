@@ -2798,3 +2798,10 @@ def test_byte_order_median(xp):
     b = xp.arange(9, dtype='>f4').reshape(3, 3)
     t = ndimage.median_filter(b, (3, 3))
     assert_array_almost_equal(ref, t)
+
+def test_gh22250():
+    rng = np.random.default_rng(6367584847729)
+    image = np.zeros((9044, ))
+    noisy_image = image + 0.4 * rng.random(image.shape)
+    # Apply median filtering
+    ndimage.median_filter(noisy_image, size=10, mode='wrap')
