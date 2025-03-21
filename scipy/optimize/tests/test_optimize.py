@@ -20,6 +20,7 @@ from pytest import raises as assert_raises
 
 import scipy
 from scipy import optimize
+import scipy._lib._util
 from scipy.optimize._minimize import Bounds, NonlinearConstraint
 from scipy.optimize._minimize import (MINIMIZE_METHODS,
                                       MINIMIZE_METHODS_NEW_CB,
@@ -29,14 +30,14 @@ from scipy.optimize._root import ROOT_METHODS
 from scipy.optimize._root_scalar import ROOT_SCALAR_METHODS
 from scipy.optimize._qap import QUADRATIC_ASSIGNMENT_METHODS
 from scipy.optimize._differentiable_functions import ScalarFunction, FD_METHODS
-from scipy.optimize._optimize import MemoizeJac, show_options, OptimizeResult
+from scipy.optimize._optimize import MemoizeJac, show_options
 from scipy.optimize import rosen, rosen_der, rosen_hess
 
 from scipy.sparse import (coo_matrix, csc_matrix, csr_matrix, coo_array,
                           csr_array, csc_array)
 from scipy._lib._array_api_no_0d import xp_assert_equal
 from scipy._lib._array_api import make_skip_xp_backends
-from scipy._lib._util import MapWrapper
+from scipy._lib._util import MapWrapper, OptimizeResult
 
 skip_xp_backends = pytest.mark.skip_xp_backends
 
@@ -1232,7 +1233,7 @@ class TestOptimizeSimple(CheckOptimize):
                         stop = True
                         break
 
-            return optimize.OptimizeResult(fun=besty, x=bestx, nit=niter,
+            return scipy._lib._util.OptimizeResult(fun=besty, x=bestx, nit=niter,
                                            nfev=funcalls, success=(niter > 1))
 
         x0 = [1.35, 0.9, 0.8, 1.1, 1.2]
@@ -1249,7 +1250,7 @@ class TestOptimizeSimple(CheckOptimize):
         def custmin(fun, x0, **options):
             assert options['bounds'] is bounds
             assert options['constraints'] is constraints
-            return optimize.OptimizeResult()
+            return scipy._lib._util.OptimizeResult()
 
         x0 = [1, 1]
         optimize.minimize(optimize.rosen, x0, method=custmin,
@@ -1336,7 +1337,7 @@ class TestOptimizeSimple(CheckOptimize):
         results = []
 
         def callback(x, *args, **kwargs):
-            assert not isinstance(x, optimize.OptimizeResult)
+            assert not isinstance(x, scipy._lib._util.OptimizeResult)
             results.append((x, np.copy(x)))
 
         routine(func, x0, callback=callback, **kwargs)
@@ -1982,7 +1983,7 @@ class TestOptimizeScalar:
                     stop = True
                     break
 
-            return optimize.OptimizeResult(fun=besty, x=bestx, nit=niter,
+            return scipy._lib._util.OptimizeResult(fun=besty, x=bestx, nit=niter,
                                            nfev=funcalls, success=(niter > 1))
 
         res = optimize.minimize_scalar(self.fun, bracket=(0, 4),
@@ -3203,7 +3204,7 @@ class TestGlobalOptimization:
                    ]
 
         for result in results:
-            assert isinstance(result, optimize.OptimizeResult)
+            assert isinstance(result, scipy._lib._util.OptimizeResult)
             assert hasattr(result, "x")
             assert hasattr(result, "success")
             assert hasattr(result, "message")

@@ -17,6 +17,7 @@ from scipy._lib._array_api import (
     xp_size,
     xp_vector_norm,
 )
+import scipy._lib._util
 
 from ._ansari_swilk_statistics import gscale, swilk
 from . import _stats_py, _wilcoxon
@@ -2282,7 +2283,7 @@ def anderson(x, dist='norm'):
 
     # FitResult initializer expects an optimize result, so let's work with it
     message = '`anderson` successfully fit the distribution to the data.'
-    res = optimize.OptimizeResult(success=True, message=message)
+    res = scipy._lib._util.OptimizeResult(success=True, message=message)
     res.x = np.array(fit_params)
     fit_result = FitResult(getattr(distributions, dist), y,
                            discrete=False, res=res)

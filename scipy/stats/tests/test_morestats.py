@@ -17,6 +17,7 @@ import pytest
 from pytest import raises as assert_raises
 import re
 from scipy import optimize, stats, special
+import scipy._lib._util
 from scipy.stats._morestats import _abw_state, _get_As_weibull, _Avals_weibull
 from .common_tests import check_named_results
 from .._hypotests import _get_wilcoxon_distr, _get_wilcoxon_distr2
@@ -2582,7 +2583,7 @@ class TestYeojohnson:
 
         def optimizer(fun, lam_yeo):
             out = optimize.fminbound(fun, -lam_yeo, lam_yeo, xtol=1.48e-08)
-            result = optimize.OptimizeResult()
+            result = scipy._lib._util.OptimizeResult()
             result.x = out
             return result
 

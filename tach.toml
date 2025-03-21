@@ -72,7 +72,7 @@ depends_on = ["scipy._lib", "scipy.interpolate", "scipy.sparse", "scipy.stats", 
 
 [[modules]]
 path = "scipy.interpolate"
-depends_on = ["scipy._lib", "scipy.special", "scipy.spatial.distance", "scipy.linalg", "scipy.optimize", "scipy.spatial", "scipy.linalg.lapack", "scipy.sparse.linalg", "scipy.sparse", "scipy"]
+depends_on = ["scipy._lib", "scipy.special", "scipy.spatial.distance", "scipy.linalg", "scipy.spatial", "scipy.linalg.lapack", "scipy.sparse.linalg", "scipy.sparse", "scipy"]
 
 [[modules]]
 path = "scipy.io"
