@@ -949,7 +949,7 @@ def _set_invalid_nan(f):
         x = np.asarray(x)
         dtype = self._dtype
         shape = self._shape
-        discrete = isinstance(self, DiscreteDistribution)
+        discrete = self._discrete
         keep_low_endpoint = discrete and method_name in {'_cdf1', '_logcdf1',
                                                          '_ccdf1', '_logccdf1'}
 
@@ -1917,16 +1917,20 @@ class UnivariateDistribution(_ProbabilityDistribution):
         return f"{class_name}({', '.join(info)})"
 
     def __add__(self, loc):
-        return ShiftedScaledDistribution(self, loc=loc)
+        return (ShiftedScaledDiscreteDistribution(self, loc=loc) if self._discrete
+                else ShiftedScaledContinuousDistribution(self, loc=loc))
 
     def __sub__(self, loc):
-        return ShiftedScaledDistribution(self, loc=-loc)
+        return (ShiftedScaledDiscreteDistribution(self, loc=-loc) if self._discrete
+                else ShiftedScaledContinuousDistribution(self, loc=-loc))
 
     def __mul__(self, scale):
-        return ShiftedScaledDistribution(self, scale=scale)
+        return (ShiftedScaledDiscreteDistribution(self, scale=scale) if self._discrete
+                else ShiftedScaledContinuousDistribution(self, scale=scale))
 
     def __truediv__(self, scale):
-        return ShiftedScaledDistribution(self, scale=1/scale)
+        return (ShiftedScaledDiscreteDistribution(self, scale=1/scale) if self._discrete
+                else ShiftedScaledContinuousDistribution(self, scale=1/scale))
 
     def __pow__(self, other):
         if not np.isscalar(other) or other <= 0 or other != int(other):
@@ -1999,6 +2003,14 @@ class UnivariateDistribution(_ProbabilityDistribution):
 
     def __abs__(self):
         return FoldedDistribution(self)
+
+    def _pxf_dispatch(self, *args, **kwargs):
+        return (self._pmf_dispatch(*args, **kwargs) if self._discrete
+                else self._pdf_dispatch(*args, **kwargs))
+
+    def _logpxf_dispatch(self, *args, **kwargs):
+        return (self._logpmf_dispatch(*args, **kwargs) if self._discrete
+                else self._logpdf_dispatch(*args, **kwargs))
 
     ### Utilities
 
@@ -2090,7 +2102,7 @@ class UnivariateDistribution(_ProbabilityDistribution):
         rtol = None if _isnull(self.tol) else self.tol
         # For now, we ignore the status, but I want to return the error
         # estimate - see question 5 at the top.
-        if isinstance(self, ContinuousDistribution):
+        if not self._discrete:
             res = _tanhsinh(f, a, b, args=args, log=log, rtol=rtol)
             return res.integral
         else:
@@ -3455,7 +3467,7 @@ class UnivariateDistribution(_ProbabilityDistribution):
         # - when the parameters of the distribution are an array,
         #   use the full range of abscissae for all curves
 
-        discrete = isinstance(self, DiscreteDistribution)
+        discrete = self._discrete
         t_is_quantile = {'x', 'icdf', 'iccdf', 'ilogcdf', 'ilogccdf'}
         t_is_probability = {'cdf', 'ccdf', 'logcdf', 'logccdf'}
         valid_t = t_is_quantile.union(t_is_probability)
@@ -3597,6 +3609,10 @@ class UnivariateDistribution(_ProbabilityDistribution):
 
 
 class ContinuousDistribution(UnivariateDistribution):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._discrete = False
+
     def _overrides(self, method_name):
         if method_name in {'_logpmf_formula', '_pmf_formula'}:
             return True
@@ -3608,25 +3624,11 @@ class ContinuousDistribution(UnivariateDistribution):
     def _logpmf_formula(self, x, **params):
         return np.full_like(x, -np.inf)
 
-    def _pxf_dispatch(self, x, *, method=None, **params):
-        return self._pdf_dispatch(x, method=method, **params)
-
-    def _logpxf_dispatch(self, x, *, method=None, **params):
-        return self._logpdf_dispatch(x, method=method, **params)
-
 
 class DiscreteDistribution(UnivariateDistribution):
-    def __add__(self, loc):
-        loc = np.asarray(loc)
-        integral = (loc == np.round(loc))
-        loc[~integral] = np.nan
-        return super().__add__(loc=loc)
-
-    def __sub__(self, loc):
-        loc = np.asarray(loc)
-        integral = (loc == np.round(loc))
-        loc[~integral] = np.nan
-        return super.__sub__(loc=-loc)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._discrete = True
 
     def __mul__(self, scale):
         message = "Scaling is currently only supported for continuous RVs."
@@ -3656,12 +3658,6 @@ class DiscreteDistribution(UnivariateDistribution):
         else:
             nan_result = np.isnan(x)
         return np.where(nan_result, np.nan, np.inf)
-
-    def _pxf_dispatch(self, x, *, method=None, **params):
-        return self._pmf_dispatch(x, method=method, **params)
-
-    def _logpxf_dispatch(self, x, *, method=None, **params):
-        return self._logpmf_dispatch(x, method=method, **params)
 
     def _cdf_quadrature(self, x, **params):
         return super()._cdf_quadrature(np.floor(x), **params)
@@ -4368,7 +4364,7 @@ def _shift_scale_inverse_function(func):
              '_icdf_dispatch': '_iccdf_dispatch',
              '_ilogccdf_dispatch': '_ilogcdf_dispatch',
              '_iccdf_dispatch': '_icdf_dispatch'}
-    def wrapped(self, p, *args, loc, scale, sign, **kwargs):
+    def wrapped(self, p_, *args, loc, scale, sign, **kwargs):
         item = func.__name__
 
         f = getattr(self._dist, item)
@@ -4376,18 +4372,19 @@ def _shift_scale_inverse_function(func):
 
         # Obviously it's possible to get away with half of the work here.
         # Let's focus on correct results first and optimize later.
-        fx =  self._itransform(f(p, *args, **kwargs), loc, scale)
-        cfx = self._itransform(cf(p, *args, **kwargs), loc, scale)
+        fx =  self._itransform(f(p_, *args, **kwargs), loc, scale)
+        cfx = self._itransform(cf(p_, *args, **kwargs), loc, scale)
         return np.where(sign, fx, cfx)[()]
 
     return wrapped
 
 
-class TransformedDistribution(ContinuousDistribution):
+class TransformedDistribution(UnivariateDistribution):
     def __init__(self, X, /, *args, **kwargs):
         self._copy_parameterization()
         self._variable = X._variable
         self._dist = X
+        self._discrete = X._discrete
         if X._parameterization:
             # Add standard distribution parameters to our parameterization
             dist_parameters = X._parameterization.parameters
@@ -4453,7 +4450,7 @@ class TruncatedDistribution(TransformedDistribution):
                           _Parameterization(_ub_param)]
 
     def __init__(self, X, /, *args, lb=-np.inf, ub=np.inf, **kwargs):
-        if not isinstance(X, ContinuousDistribution):
+        if X._discrete:
             message = ("Truncated distributions are currently only supported for "
                        "continuous RVs.")
             raise NotImplementedError(message)
@@ -4589,18 +4586,6 @@ def truncate(X, lb=-np.inf, ub=np.inf):
 
 class ShiftedScaledDistribution(TransformedDistribution):
     """Distribution with a standard shift/scale transformation."""
-    # Unclear whether infinite loc/scale will work reasonably in all cases
-    _loc_domain = _RealInterval(endpoints=(-inf, inf), inclusive=(True, True))
-    _loc_param = _RealParameter('loc', symbol=r'\mu',
-                                domain=_loc_domain, typical=(1, 2))
-
-    _scale_domain = _RealInterval(endpoints=(-inf, inf), inclusive=(True, True))
-    _scale_param = _RealParameter('scale', symbol=r'\sigma',
-                                  domain=_scale_domain, typical=(0.1, 10))
-
-    _parameterizations = [_Parameterization(_loc_param, _scale_param),
-                          _Parameterization(_loc_param),
-                          _Parameterization(_scale_param)]
 
     def _process_parameters(self, loc=None, scale=None, **params):
         loc = loc if loc is not None else np.zeros_like(scale)[()]
@@ -4789,22 +4774,66 @@ class ShiftedScaledDistribution(TransformedDistribution):
         return self._itransform(rvs, loc=loc, scale=scale, sign=sign, **params)
 
     def __add__(self, loc):
-        return ShiftedScaledDistribution(self._dist, loc=self.loc + loc,
-                                         scale=self.scale)
+        return self.__class__(self._dist, loc=self.loc + loc, scale=self.scale)
 
     def __sub__(self, loc):
-        return ShiftedScaledDistribution(self._dist, loc=self.loc - loc,
-                                         scale=self.scale)
+        return self.__class__(self._dist, loc=self.loc - loc, scale=self.scale)
 
     def __mul__(self, scale):
-        return ShiftedScaledDistribution(self._dist,
-                                         loc=self.loc * scale,
-                                         scale=self.scale * scale)
+        return self.__class__(self._dist, loc=self.loc * scale,
+                              scale=self.scale * scale)
 
     def __truediv__(self, scale):
-        return ShiftedScaledDistribution(self._dist,
-                                         loc=self.loc / scale,
-                                         scale=self.scale / scale)
+        return self.__class__(self._dist, loc=self.loc / scale,
+                              scale=self.scale / scale)
+
+
+class ShiftedScaledContinuousDistribution(ShiftedScaledDistribution):
+    """Continuous distribution with a standard shift/scale transformation."""
+    # Unclear whether infinite loc/scale will work reasonably in all cases
+    _loc_domain = _RealInterval(endpoints=(-inf, inf), inclusive=(True, True))
+    _loc_param = _RealParameter('loc', symbol=r'\mu',
+                                domain=_loc_domain, typical=(1, 2))
+
+    _scale_domain = _RealInterval(endpoints=(-inf, inf), inclusive=(True, True))
+    _scale_param = _RealParameter('scale', symbol=r'\sigma',
+                                  domain=_scale_domain, typical=(0.1, 10))
+
+    _parameterizations = [_Parameterization(_loc_param, _scale_param),
+                          _Parameterization(_loc_param),
+                          _Parameterization(_scale_param)]
+
+    def __init__(self, X, *args, **kwargs):
+        super().__init__(X, *args, **kwargs)
+        self._discrete = False
+
+
+class ShiftedScaledDiscreteDistribution(ShiftedScaledDistribution):
+    """Discrete distribution with a standard shift/scale transformation."""
+    # Unclear whether infinite loc/scale will work reasonably in all cases
+    _loc_domain = _IntegerInterval(endpoints=(-inf, inf), inclusive=(True, True))
+    _loc_param = _RealParameter('loc', symbol=r'\mu',
+                                domain=_loc_domain, typical=(1, 2))
+
+    _scale_domain = _IntegerInterval(endpoints=(-inf, inf), inclusive=(True, True))
+    _scale_param = _RealParameter('scale', symbol=r'\sigma',
+                                  domain=_scale_domain, typical=(0.1, 10))
+
+    _parameterizations = [_Parameterization(_loc_param, _scale_param),
+                          _Parameterization(_loc_param),
+                          _Parameterization(_scale_param)]
+
+    def __init__(self, X, *args, **kwargs):
+        super().__init__(X, *args, **kwargs)
+        self._discrete = True
+
+    def __mul__(self, scale):
+        message = "Scaling is currently only supported for continuous RVs."
+        raise NotImplementedError(message)
+
+    def __truediv__(self, scale):
+        message = "Scaling is currently only supported for continuous RVs."
+        raise NotImplementedError(message)
 
 
 class OrderStatisticDistribution(TransformedDistribution):
@@ -4884,7 +4913,7 @@ class OrderStatisticDistribution(TransformedDistribution):
     _parameterizations = [_Parameterization(_r_param, _n_param)]
 
     def __init__(self, dist, /, *args, r, n, **kwargs):
-        if not isinstance(dist, ContinuousDistribution):
+        if dist._discrete:
             message = ("Order statistics are currently only supported for continuous "
                        "RVs.")
             raise NotImplementedError(message)
@@ -5116,7 +5145,7 @@ class Mixture(_ProbabilityDistribution):
         for var in components:
             # will generalize to other kinds of distributions when there
             # *are* other kinds of distributions
-            if not isinstance(var, ContinuousDistribution):
+            if getattr(var, '_discrete', True):
                 message = ("Each element of `components` must be an instance of "
                            "`ContinuousDistribution`.")
                 raise ValueError(message)
@@ -5404,7 +5433,7 @@ class MonotonicTransformedDistribution(TransformedDistribution):
     def __init__(self, X, /, *args, g, h, dh, logdh=None,
                  increasing=True, repr_pattern=None,
                  str_pattern=None, **kwargs):
-        if not isinstance(X, ContinuousDistribution):
+        if X._discrete:
             message = ("Monotonic transforms are currently only supported for "
                        "continuous RVs.")
             raise NotImplementedError(message)
@@ -5514,7 +5543,7 @@ class FoldedDistribution(TransformedDistribution):
     # with the general case; enhance later.
 
     def __init__(self, X, /, *args, **kwargs):
-        if not isinstance(X, ContinuousDistribution):
+        if X._discrete:
             message = ("Folded distributions are currently only supported for "
                        "continuous RVs.")
             raise NotImplementedError(message)
