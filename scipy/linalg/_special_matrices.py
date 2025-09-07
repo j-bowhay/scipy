@@ -3,7 +3,7 @@ import math
 import numpy as np
 from numpy.lib.stride_tricks import as_strided
 from scipy._lib._util import _apply_over_batch
-from scipy._lib._array_api import array_namespace, xp_capabilities, xp_size
+from scipy._lib._array_api import array_namespace, xp_capabilities
 import scipy._lib.array_api_extra as xpx
 
 
@@ -979,12 +979,7 @@ def fiedler(a):
     xp = array_namespace(a)
     a = xpx.atleast_nd(xp.asarray(a), ndim=1)
 
-    if xp_size(a) == 0:
-        return xp.asarray([], dtype=xp.float64)
-    elif xp_size(a) == 1:
-        return xp.asarray([[0.]])
-    else:
-        return xp.abs(a[..., :, xp.newaxis] - a[..., xp.newaxis, :])
+    return xp.abs(a[..., :, xp.newaxis] - a[..., xp.newaxis, :])
 
 
 def fiedler_companion(a):
