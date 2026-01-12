@@ -488,8 +488,8 @@ def _mode_result(mode, count):
 
 
 @xp_capabilities(skip_backends=[('dask.array', "can't compute chunk size"),
-                                ('jax.numpy', "relies on _axis_nan_policy"),
-                                ('cupy', "data-apis/array-api-compat#312")])
+                                ('cupy', "data-apis/array-api-compat#312")],
+                 jax_jit=False)
 @_axis_nan_policy_factory(_mode_result, override={'nan_propagation': False})
 def mode(a, axis=0, nan_policy='propagate', keepdims=False):
     r"""Return an array of the modal (most common) value in the passed array.
@@ -3070,8 +3070,8 @@ def gstd(a, axis=0, ddof=1, *, keepdims=False, nan_policy='propagate'):
 _scale_conversions = {'normal': float(special.erfinv(0.5) * 2.0 * math.sqrt(2.0))}
 
 
-@xp_capabilities(skip_backends=[('dask.array', 'no quantile (take_along_axis)'),
-                                ('jax.numpy', 'lazy -> no _axis_nan_policy)')])
+@xp_capabilities(skip_backends=[('dask.array', 'no quantile (take_along_axis)')],
+                 jax_jit=False)
 @_axis_nan_policy_factory(
     lambda x: x, result_to_tuple=lambda x, _: (x,), n_outputs=1,
     default_axis=None, override={'nan_propagation': False}
@@ -3241,8 +3241,8 @@ def _mad_1d(x, center, nan_policy):
     return mad
 
 
-@xp_capabilities(skip_backends=[('jax.numpy', 'not supported by `quantile`'),
-                                ('dask.array', 'not supported by `quantile`')])
+@xp_capabilities(skip_backends=[('dask.array', 'not supported by `quantile`')],
+                 jax_jit=False)
 @_axis_nan_policy_factory(
     lambda x: x, result_to_tuple=lambda x, _: (x,), n_outputs=1, default_axis=0
 )
@@ -3391,7 +3391,7 @@ SigmaclipResult = namedtuple('SigmaclipResult', ('clipped', 'lower', 'upper'))
 
 @xp_capabilities(skip_backends=[('dask.array', "doesn't know array size")],
                  jax_jit=False)
-def sigmaclip(a, low=4., high=4.):
+def sigmaclip(a, low=4., high=4., *, nan_policy='propagate'):
     """Perform iterative sigma-clipping of array elements.
 
     Starting from the full sample, all elements outside the critical range are
@@ -3412,6 +3412,13 @@ def sigmaclip(a, low=4., high=4.):
         Lower bound factor of sigma clipping. Default is 4.
     high : float, optional
         Upper bound factor of sigma clipping. Default is 4.
+    nan_policy : {'propagate', 'omit', 'raise'}
+        Defines how to handle input NaNs.
+
+        - ``propagate``: if a NaN is present in the input, the clipped array will be
+          empty, and the upper and lower thresholds will be NaN.
+        - ``omit``: NaNs will be omitted when performing the calculation.
+        - ``raise``: if a NaN is present, a ``ValueError`` will be raised.
 
     Returns
     -------
@@ -3456,6 +3463,15 @@ def sigmaclip(a, low=4., high=4.):
     """
     xp = array_namespace(a)
     c = xp_ravel(xp.asarray(a))
+    contains_nan = _contains_nan(c, nan_policy, xp_omit_okay=True)
+    if contains_nan:
+        if nan_policy == 'propagate':
+            NaN = _get_nan(c, xp=xp)
+            clipped = xp.empty_like(c[0:0])
+            return SigmaclipResult(clipped, NaN, NaN)
+        elif nan_policy == 'omit':
+            c = c[~xp.isnan(c)]
+
     delta = 1
     while delta:
         c_std = xp.std(c)
@@ -4051,7 +4067,7 @@ class AlexanderGovernResult:
     pvalue: float
 
 
-@xp_capabilities()
+@xp_capabilities(jax_jit=False)
 @_axis_nan_policy_factory(
     AlexanderGovernResult, n_samples=None,
     result_to_tuple=lambda x, _: (x.statistic, x.pvalue),
@@ -6340,7 +6356,7 @@ def _equal_var_ttest_denom(v1, n1, v2, n2, xp=None):
 Ttest_indResult = namedtuple('Ttest_indResult', ('statistic', 'pvalue'))
 
 
-@xp_capabilities(cpu_only=True, exceptions=["cupy", "jax.numpy"])
+@xp_capabilities(cpu_only=True, exceptions=["cupy", "jax.numpy"], jax_jit=False)
 def ttest_ind_from_stats(mean1, std1, nobs1, mean2, std2, nobs2,
                          equal_var=True, alternative="two-sided"):
     r"""
@@ -6483,7 +6499,7 @@ def ttest_ind_from_stats(mean1, std1, nobs1, mean2, std2, nobs2,
     return Ttest_indResult(*res)
 
 
-@xp_capabilities(cpu_only=True, exceptions=["cupy", "jax.numpy"])
+@xp_capabilities(cpu_only=True, exceptions=["cupy", "jax.numpy"], jax_jit=False)
 @_axis_nan_policy_factory(pack_TtestResult, default_axis=0, n_samples=2,
                           result_to_tuple=unpack_TtestResult, n_outputs=6)
 def ttest_ind(a, b, *, axis=0, equal_var=True, nan_policy='propagate',
@@ -8629,8 +8645,8 @@ BrunnerMunzelResult = namedtuple('BrunnerMunzelResult',
 
 @xp_capabilities(cpu_only=True, # torch GPU can't use `stdtr`
                  skip_backends=[('dask.array', 'needs rankdata'),
-                                ('cupy', 'needs rankdata'),
-                                ('jax.numpy', 'needs _axis_nan_policy decorator')])
+                                ('cupy', 'needs rankdata')],
+                 jax_jit=False)
 @_axis_nan_policy_factory(BrunnerMunzelResult, n_samples=2)
 def brunnermunzel(x, y, alternative="two-sided", distribution="t",
                   nan_policy='propagate', *, axis=0):
@@ -10045,7 +10061,7 @@ def rankdata(a, method='average', *, axis=None, nan_policy='propagate'):
         i_nan = (xp.isnan(x) if nan_policy == 'omit'
                  else xp.any(xp.isnan(x), axis=-1))
         ranks = xp.asarray(ranks, dtype=default_float)  # copy=False when implemented
-        ranks[i_nan] = xp.nan
+        ranks = xpx.at(ranks)[i_nan].set(xp.nan)
 
     ranks = xp_swapaxes(ranks, axis, -1, xp=xp)
     return ranks
