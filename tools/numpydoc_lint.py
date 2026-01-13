@@ -44,40 +44,9 @@ compiled_code_skips = {  # compiled code ignores "numpydoc ignore=" comments"
 legacy_functions = [
     "scipy.integrate.complex_ode",
     "scipy.integrate.ode",
-    "scipy.stats.rv_histogram",
-    "scipy.stats.distributions.rv_histogram",
-    "scipy.stats.rv_continuous",
-    "scipy.stats.distributions.rv_continuous",
-    "scipy.stats.rv_discrete",
-    "scipy.stats.distributions.rv_discrete",
-    "scipy.interpolate.InterpolatedUnivariateSpline",
-    "scipy.interpolate.LSQUnivariateSpline",
-    "scipy.interpolate.UnivariateSpline",
-    "scipy.sparse.lil_matrix",
-    "scipy.sparse.dok_matrix",
-    "scipy.sparse.dia_matrix",
-    "scipy.sparse.csc_matrix",
-    "scipy.sparse.csr_matrix",
-    "scipy.sparse.coo_matrix",
-    "scipy.sparse.bsr_matrix",
-    "scipy.sparse.spmatrix",
-    "scipy.optimize.BroydenFirst",
-    "scipy.optimize.KrylovJacobian"
-]
-
-# the method of these classes have no __doc__, skip for now
-false_positives = ["scipy.stats.Uniform",
-                   "scipy.stats.Normal",
-                   "scipy.stats.Mixture",
-                   "scipy.stats.Binomial",
-                   "scipy.stats.Logistic"]
-
-skip_modules = [
-    "scipy.odr",
-    "cipy.fftpack",
-    "scipy.stats.mstats",
-    "scipy.linalg.cython_lapack",
-    "scipy.linalg.cython_blas",
+    "rv_histogram",
+    "rv_continuous",
+    "rv_discrete",
 ]
 
 
@@ -128,7 +97,7 @@ def main():
 
     errors = 0
     for item in public_api:
-        if str(item) in skip_items:
+        if any(func in item for func in legacy_functions):
             continue
         try:
             res = validate(item)

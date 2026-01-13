@@ -1982,19 +1982,14 @@ class ShortTimeFFT:
         ----------
         n : int
             Number of sample of the input signal.
-        p0 : int, optional
+        p0 : int or None
             The first element of the range of slices to calculate. If ``None``
             then it is set to :attr:`p_min`, which is the smallest possible
             slice.
-        p1 : int, optional
+        p1 : int or None
             The end of the array. If ``None`` then `p_max(n)` is used.
         k_offset : int
             Index of first sample (t = 0) in `x`.
-
-        Returns
-        -------
-        t : ndarray
-            1D array of times of the STFT slices from `p0` to `p1` - 1.
 
         See Also
         --------
@@ -2004,6 +1999,10 @@ class ShortTimeFFT:
         T: Sampling interval of input signal and of the window (``1/fs``).
         fs: Sampling frequency (being ``1/T``)
         ShortTimeFFT: Class this method belongs to.
+
+        Returns
+        -------
+        t : ndarray
 
         Notes
         -----
