@@ -83,7 +83,6 @@ skip_modules = [
 
 def walk_class(module_str, class_, public_api):
     class_str = class_.__name__
-    # skip private methods (and dunder methods)
     attrs = {a for a in dir(class_) if not a.startswith("_")}
     for attr in attrs:
         item = getattr(class_, attr)
@@ -91,8 +90,9 @@ def walk_class(module_str, class_, public_api):
             public_api.append(f"{module_str}.{class_str}.{attr}")
 
 
-def walk_module(module_str):
-    public_api = []
+def walk_module(module_str, public_api=None):
+    if public_api is None:
+        public_api = []
 
     module = importlib.import_module(module_str)
 
@@ -120,15 +120,15 @@ def main():
 
     # get a list of all public objects
     for module in PUBLIC_MODULES:
-        if module in skip_modules:
+        if ("mstats" in module or "odr" in module or "fftpack" in module or
+            "cython" in module):
             # deprecated / legacy modules
             continue
         public_api += walk_module(module)
 
     errors = 0
     for item in public_api:
-        if (any(func in item for func in legacy_functions) or
-            any(func in item for func in false_positives)):
+        if str(item) in skip_items:
             continue
         try:
             res = validate(item)
