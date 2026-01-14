@@ -181,11 +181,6 @@ class FortranFile:
         data : ndarray
             A 1-D array object.
 
-        See Also
-        --------
-        read_reals
-        read_ints
-
         Raises
         ------
         FortranEOFError

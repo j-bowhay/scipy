@@ -1317,7 +1317,7 @@ class _BivariateSplineBase:
 
         Returns
         -------
-        tuple of 1D arrays
+        tuple of ndarrays
             Spline knots with respect to x- and y-variable.
         """
         return self.tck[:2]
@@ -1327,7 +1327,7 @@ class _BivariateSplineBase:
 
         Returns
         -------
-        1D array
+        ndarray
             Spline coefficients.
         """
         return self.tck[2]
@@ -1603,7 +1603,7 @@ class BivariateSpline(_BivariateSplineBase):
         Returns
         -------
         z : ndarray
-            Evaluated values. Shape is the result of broadcasting `xi` and `yi`.
+            Evaluated values.
 
         Examples
         --------
