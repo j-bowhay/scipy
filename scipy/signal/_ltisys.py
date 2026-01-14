@@ -294,13 +294,16 @@ class lti(LinearTimeInvariant):
         U : array_like
             An input array describing the input at each time `T`
             (interpolation is assumed between given times).  If there are
-            multiple inputs, then each column of the 2D array
+            multiple inputs, then each column of the rank-2 array
             represents an input.  If U = 0 or None, a zero input is used.
         T : array_like
             The time steps at which the input is defined and at which the
             output is desired.  Must be nonnegative, increasing, and equally spaced.
         X0 : array_like, optional
             The initial conditions on the state vector (zero by default).
+        interp : bool, optional
+            Whether to use linear (True, the default) or zero-order-hold (False)
+            interpolation for the input array.
 
         Returns
         -------
@@ -331,7 +334,6 @@ class lti(LinearTimeInvariant):
             Number of frequency points to compute if `w` is not given. The `n`
             frequencies are logarithmically spaced in an interval chosen to
             include the influence of the poles and zeros of the system.
-            Defaults to 100.
 
         Returns
         -------
@@ -377,7 +379,6 @@ class lti(LinearTimeInvariant):
             Number of frequency points to compute if `w` is not given. The `n`
             frequencies are logarithmically spaced in an interval chosen to
             include the influence of the poles and zeros of the system.
-            Defaults to 10000.
 
         Returns
         -------

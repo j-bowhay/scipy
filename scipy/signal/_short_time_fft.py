@@ -1467,17 +1467,6 @@ class ShortTimeFFT:
         f_axis, t_axis : int, optional
             The axes in `S` denoting the frequency and the time dimension.
 
-        Returns
-        -------
-        ndarray
-            Array of dimension ``S.ndim - 1``  which is real if `onesided_fft` is set,
-            else complex.
-
-        Raises
-        ------
-        ValueError
-            If the STFT is not invertible, or the parameters are out of bounds.
-
         See Also
         --------
         invertible: Check if STFT is invertible.
@@ -1994,6 +1983,7 @@ class ShortTimeFFT:
         Returns
         -------
         t : ndarray
+            1d array of times of the STFT slices from `p0` to `p1` - 1.
 
         See Also
         --------
@@ -2037,9 +2027,9 @@ class ShortTimeFFT:
         ----------
         k : int
             Sample index for which the nearest slice center index is sought.
-        left : bool, optional
+        left : bool
             If ``True`` then the nearest smaller index is returned, else the
-            nearest larger index is returned. Defaults to ``True``.
+            nearest larger index is returned.
 
         Returns
         -------
