@@ -151,7 +151,7 @@ for npfunc in _ufuncs_with_fixed_point_at_zero:
 
                 Returns
                 -------
-                {name} : sparse array / matrix
+                {name} : { _data_matrix.__name__ }
                     Result of applying `numpy.{name}` to the data of this sparse matrix.
             """
         )
