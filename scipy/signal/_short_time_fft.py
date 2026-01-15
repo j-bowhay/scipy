@@ -1467,6 +1467,17 @@ class ShortTimeFFT:
         f_axis, t_axis : int, optional
             The axes in `S` denoting the frequency and the time dimension.
 
+        Returns
+        -------
+        ndarray
+            Array of dimension ``S.ndim - 1``  which is real if `onesided_fft` is set,
+            else complex.
+
+        Raises
+        ------
+        ValueError
+            If the STFT is not invertible, or the parameters are out of bounds.
+
         See Also
         --------
         invertible: Check if STFT is invertible.
@@ -1753,7 +1764,7 @@ class ShortTimeFFT:
         Parameters
         ----------
         n : int
-            Number of samples of input.
+            Size of the sample input.
 
         Returns
         -------

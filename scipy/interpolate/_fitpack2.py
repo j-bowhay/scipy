@@ -2160,7 +2160,7 @@ class SphereBivariateSpline(_BivariateSplineBase):
         Returns
         -------
         z : ndarray
-            Evaluated values. Shape is the result of broadcasting `theta` and `phi`.
+            Evaluated values.
 
         Examples
         --------
