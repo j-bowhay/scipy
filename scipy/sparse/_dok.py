@@ -193,18 +193,18 @@ class _dok_base(_spbase, IndexMixin, dict):
 
     def items(self):
         """
-        Return a set-like object providing a view on the array's items.
+        Returns the key, value pairs of the array.
 
         Returns
         -------
         dict_items
-            A view object displaying a list of a array's key-value tuple pairs.
+            A view object displaying a list of a dictionary's key-value tuple pairs.
         """
         return self._dict.items()
 
     def keys(self):
         """
-        Return a set-like object providing a view on the dict's keys.
+        Returns the keys of the array.
 
         Returns
         -------
@@ -215,7 +215,7 @@ class _dok_base(_spbase, IndexMixin, dict):
 
     def values(self):
         """
-        Return an object providing a view on the dict's values.
+        Returns the values of the array.
 
         Returns
         -------
