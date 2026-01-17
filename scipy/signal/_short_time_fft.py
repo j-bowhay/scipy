@@ -1764,7 +1764,7 @@ class ShortTimeFFT:
         Parameters
         ----------
         n : int
-            Size of the sample input.
+            Number of samples of input.
 
         Returns
         -------
@@ -1982,7 +1982,7 @@ class ShortTimeFFT:
         ----------
         n : int
             Number of sample of the input signal.
-        p0 : int or None
+        p0 : int, optional
             The first element of the range of slices to calculate. If ``None``
             then it is set to :attr:`p_min`, which is the smallest possible
             slice.
