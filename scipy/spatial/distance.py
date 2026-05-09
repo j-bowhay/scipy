@@ -115,6 +115,7 @@ from scipy._external import array_api_extra as xpx
 from scipy.linalg import norm
 from scipy.special import rel_entr
 from . import _hausdorff, _distance_pybind, _distance_wrap
+from scipy._lib._array_api import array_namespace
 
 
 def _copy_array_if_base_present(a):
@@ -286,17 +287,19 @@ def _validate_seuclidean_kwargs(X, m, n, **kwargs):
     return kwargs
 
 
-def _validate_vector(u, dtype=None):
+def _validate_vector(u, dtype=None, xp=np):
     # XXX Is order='c' really necessary?
-    u = np.asarray(u, dtype=dtype, order='c')
+    u = _asarray(u, dtype=dtype, order='c', xp=xp)
     if u.ndim == 1:
         return u
     raise ValueError("Input vector should be 1-D.")
 
 
-def _validate_weights(w, dtype=np.float64):
-    w = _validate_vector(w, dtype=dtype)
-    if np.any(w < 0):
+def _validate_weights(w, dtype=None, xp=np):
+    if dtype is None:
+        dtype = xp.float64
+    w = _validate_vector(w, dtype=dtype, xp=xp)
+    if xp.any(w < 0):
         raise ValueError("Input weights should be all non-negative")
     return w
 
@@ -480,8 +483,9 @@ def minkowski(u, v, p=2, w=None):
     1.0
 
     """
-    u = _asarray(u, order='C')
-    v = _asarray(v, order='C')
+    xp = array_namespace(u, v, w)
+    u = _asarray(u, order='C', xp=xp)
+    v = _asarray(v, order='C', xp=xp)
     if p <= 0:
         raise ValueError("p must be greater than 0")
     u_v = u - v
@@ -491,13 +495,13 @@ def minkowski(u, v, p=2, w=None):
             root_w = w
         elif p == 2:
             # better precision and speed
-            root_w = np.sqrt(w)
-        elif p == np.inf:
+            root_w = xp.sqrt(w)
+        elif p == xp.inf:
             root_w = (w != 0)
         else:
-            root_w = np.power(w, 1/p)
+            root_w = xp.power(w, 1/p)
         u_v = root_w * u_v
-    dist = norm(u_v, ord=p, axis=-1)
+    dist = xp.linalg.vector_norm(u_v, ord=p, axis=-1)
     return dist
 
 
