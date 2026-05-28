@@ -653,7 +653,6 @@ compilers = {
   'CPP': cpp,
   'CYTHON': meson.get_compiler('cython'),
 }
-compilers += {'FORTRAN': meson.get_compiler('c')}
 
 machines = {
   'HOST': host_machine,
