@@ -721,27 +721,26 @@ configure_file(
 
 # Ordering of subdirs: special and linalg come first, because other submodules
 # have dependencies on cython_special.pxd and cython_linalg.pxd. After those,
-# subdirs with the most heavy builds should come first (that parallelizes a
+# subdirs with the heaviest builds should come first (that parallelizes a
 # little better).
-#
 subdir('_build_utils')
 subdir('_external')
 subdir('_lib')
 subdir('linalg')
 subdir('special')
-subdir('sparse')
-subdir('stats')
-subdir('fft')
 subdir('io')
 subdir('optimize')
+subdir('sparse')
+subdir('fft')
+subdir('stats')
 subdir('spatial')
+subdir('interpolate')
+subdir('signal')
+subdir('ndimage')
 subdir('cluster')
+subdir('integrate')
 subdir('constants')
 subdir('fftpack')
-subdir('integrate')
 subdir('differentiate')
-subdir('signal')
-subdir('interpolate')
-subdir('ndimage')
 subdir('datasets')
 subdir('misc')
