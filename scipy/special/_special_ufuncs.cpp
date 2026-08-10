@@ -24,6 +24,7 @@
 #include <xsf/digamma.h>
 #include <xsf/digammainv.h>
 #include <xsf/ellip.h>
+#include "ellint_carlson_wrap.hh"
 #include <xsf/erf.h>
 #include <xsf/exp.h>
 #include <xsf/expint.h>
@@ -64,6 +65,53 @@
 //
 // If you are adding a ufunc, you will also need to add the appropriate entry to scipy/special/functions.json.
 // This allows the build process to generate a corresponding entry for scipy.special.cython_special.
+
+// Wrappers to bridge npy_cdouble (C struct) to std::complex<double> (C++ type) for the Carlson elliptic integrals.
+namespace {
+
+inline std::complex<double> elliprc_cx(std::complex<double> x, std::complex<double> y) {
+    npy_cdouble cx = {x.real(), x.imag()};
+    npy_cdouble cy = {y.real(), y.imag()};
+    npy_cdouble r = cellint_RC(cx, cy);
+    return {r.real, r.imag};
+}
+
+inline std::complex<double> elliprd_cx(std::complex<double> x, std::complex<double> y, std::complex<double> z) {
+    npy_cdouble cx = {x.real(), x.imag()};
+    npy_cdouble cy = {y.real(), y.imag()};
+    npy_cdouble cz = {z.real(), z.imag()};
+    npy_cdouble r = cellint_RD(cx, cy, cz);
+    return {r.real, r.imag};
+}
+
+inline std::complex<double> elliprf_cx(std::complex<double> x, std::complex<double> y, std::complex<double> z) {
+    npy_cdouble cx = {x.real(), x.imag()};
+    npy_cdouble cy = {y.real(), y.imag()};
+    npy_cdouble cz = {z.real(), z.imag()};
+    npy_cdouble r = cellint_RF(cx, cy, cz);
+    return {r.real, r.imag};
+}
+
+inline std::complex<double> elliprg_cx(std::complex<double> x, std::complex<double> y, std::complex<double> z) {
+    npy_cdouble cx = {x.real(), x.imag()};
+    npy_cdouble cy = {y.real(), y.imag()};
+    npy_cdouble cz = {z.real(), z.imag()};
+    npy_cdouble r = cellint_RG(cx, cy, cz);
+    return {r.real, r.imag};
+}
+
+inline std::complex<double> elliprj_cx(
+    std::complex<double> x, std::complex<double> y, std::complex<double> z, std::complex<double> p
+) {
+    npy_cdouble cx = {x.real(), x.imag()};
+    npy_cdouble cy = {y.real(), y.imag()};
+    npy_cdouble cz = {z.real(), z.imag()};
+    npy_cdouble cp = {p.real(), p.imag()};
+    npy_cdouble r = cellint_RJ(cx, cy, cz, cp);
+    return {r.real, r.imag};
+}
+
+} // namespace
 
 extern const char *_beta_pdf_doc;
 extern const char *_beta_ppf_doc;
@@ -180,6 +228,11 @@ extern const char *ellipj_doc;
 extern const char *ellipk_doc;
 extern const char *ellipkm1_doc;
 extern const char *ellipkinc_doc;
+extern const char *elliprc_doc;
+extern const char *elliprd_doc;
+extern const char *elliprf_doc;
+extern const char *elliprg_doc;
+extern const char *elliprj_doc;
 extern const char *erf_doc;
 extern const char *erfc_doc;
 extern const char *erfcinv_doc;
@@ -1018,6 +1071,31 @@ _special_ufuncs_module_exec(PyObject *module)
         xsf::numpy::ufunc({static_cast<xsf::numpy::f_f>(xsf::ellipkm1), static_cast<xsf::numpy::d_d>(xsf::ellipkm1)},
                           "ellipkm1", ellipkm1_doc);
     PyModule_AddObjectRef(module, "ellipkm1", ellipkm1);
+
+    PyObject *elliprc =
+        xsf::numpy::ufunc({static_cast<xsf::numpy::dd_d>(fellint_RC), static_cast<xsf::numpy::DD_D>(elliprc_cx)},
+                          "elliprc", elliprc_doc);
+    PyModule_AddObjectRef(module, "elliprc", elliprc);
+
+    PyObject *elliprd =
+        xsf::numpy::ufunc({static_cast<xsf::numpy::ddd_d>(fellint_RD), static_cast<xsf::numpy::DDD_D>(elliprd_cx)},
+                          "elliprd", elliprd_doc);
+    PyModule_AddObjectRef(module, "elliprd", elliprd);
+
+    PyObject *elliprf =
+        xsf::numpy::ufunc({static_cast<xsf::numpy::ddd_d>(fellint_RF), static_cast<xsf::numpy::DDD_D>(elliprf_cx)},
+                          "elliprf", elliprf_doc);
+    PyModule_AddObjectRef(module, "elliprf", elliprf);
+
+    PyObject *elliprg =
+        xsf::numpy::ufunc({static_cast<xsf::numpy::ddd_d>(fellint_RG), static_cast<xsf::numpy::DDD_D>(elliprg_cx)},
+                          "elliprg", elliprg_doc);
+    PyModule_AddObjectRef(module, "elliprg", elliprg);
+
+    PyObject *elliprj =
+        xsf::numpy::ufunc({static_cast<xsf::numpy::dddd_d>(fellint_RJ), static_cast<xsf::numpy::DDDD_D>(elliprj_cx)},
+                          "elliprj", elliprj_doc);
+    PyModule_AddObjectRef(module, "elliprj", elliprj);
 
     PyObject *erfcinv = xsf::numpy::ufunc(
         {static_cast<xsf::numpy::f_f>(xsf::cephes::erfcinv),
