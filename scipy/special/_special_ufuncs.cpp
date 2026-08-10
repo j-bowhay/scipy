@@ -364,9 +364,6 @@ static double stdtridf_from_cdflib(double p, double t) {
         return NAN;
     }
     double q = 1.0 - p;
-    if (std::isnan(q)) {
-        return NAN;
-    }
 
     TupleDID ret = cdft_which3(p, q, t);
     double result = ret.d1;
