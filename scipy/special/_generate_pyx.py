@@ -337,6 +337,7 @@ special_ufuncs = [
     "sindg",
     "spence",
     "stdtr",
+    "stdtridf",
     "stdtrit",
     "struve",
     "tandg",

@@ -54,6 +54,7 @@
 #include <xsf/wright_bessel.h>
 #include <xsf/wright.h>
 #include <xsf/zeta.h>
+#include "cdflib.h"
 #include "mathieu.h"
 
 
@@ -324,6 +325,7 @@ extern const char *spherical_in_d_doc;
 extern const char *spherical_kn_doc;
 extern const char *spherical_kn_d_doc;
 extern const char *stdtr_doc;
+extern const char *stdtridf_doc;
 extern const char *stdtrit_doc;
 extern const char *struve_h_doc;
 extern const char *struve_l_doc;
@@ -356,6 +358,53 @@ static PyObject* _set_action(PyObject* self, PyObject* args) {
 }
 
 static PyMethodDef _methods[] = {{"_set_action", _set_action, METH_VARARGS, NULL}, {NULL, NULL, 0, NULL}};
+
+static double stdtridf_from_cdflib(double p, double t) {
+    if (std::isnan(p) || std::isnan(t)) {
+        return NAN;
+    }
+    double q = 1.0 - p;
+    if (std::isnan(q)) {
+        return NAN;
+    }
+
+    TupleDID ret = cdft_which3(p, q, t);
+    double result = ret.d1;
+    int status = ret.i1;
+    double bound = ret.d2;
+
+    if (status < 0) {
+        constexpr const char *argnames[] = {"p", "q", "t"};
+        int arg_index = -(status + 1);
+        const char *arg = "unknown";
+        if (arg_index >= 0 && arg_index < 3) {
+            arg = argnames[arg_index];
+        }
+        sf_error("stdtridf", SF_ERROR_ARG, "Input parameter %s is out of range", arg);
+        return NAN;
+    }
+    if (status == 0) {
+        return result;
+    }
+    if (status == 1) {
+        sf_error("stdtridf", SF_ERROR_OTHER, "Answer appears to be lower than lowest search bound (%g)", bound);
+        return bound;
+    }
+    if (status == 2) {
+        sf_error("stdtridf", SF_ERROR_OTHER, "Answer appears to be higher than highest search bound (%g)", bound);
+        return bound;
+    }
+    if (status == 3 || status == 4) {
+        sf_error("stdtridf", SF_ERROR_OTHER, "Two internal parameters that should sum to 1.0 do not.");
+        return NAN;
+    }
+    if (status == 10) {
+        sf_error("stdtridf", SF_ERROR_OTHER, "Computational error");
+        return NAN;
+    }
+    sf_error("stdtridf", SF_ERROR_OTHER, "Unknown error.");
+    return NAN;
+}
 
 static int
 _special_ufuncs_module_exec(PyObject *module)
@@ -1945,6 +1994,11 @@ _special_ufuncs_module_exec(PyObject *module)
                            static_cast<xsf::numpy::dd_d>(t_cdf_double)},
                           "stdtr", stdtr_doc);
     PyModule_AddObjectRef(module, "stdtr", stdtr);
+
+    PyObject *stdtridf = xsf::numpy::ufunc(
+        {static_cast<xsf::numpy::dd_d>(stdtridf_from_cdflib)},
+        "stdtridf", stdtridf_doc);
+    PyModule_AddObjectRef(module, "stdtridf", stdtridf);
 
     PyObject *stdtrit =
         xsf::numpy::ufunc({static_cast<xsf::numpy::ff_f>(t_ppf_float),
